@@ -1,0 +1,17 @@
+{
+  "input_file": "output/games_with_screenshots_ps.json",
+  "output_folder": "output_images_ps",
+  "gradient_path": "gradient.png",
+"ps_button_map": {
+  "ps4_only": "platforms/ps/ps4_button.png",
+  "ps5_only": "platforms/ps/ps5_button.png",
+  "ps4_ps5": "platforms/ps/ps4_ps5_button.png"
+},
+  "bottom_text_path": "bottom_text.png",
+  "font_path": "Axiforma-ExtraBold.otf",
+  "canvas_width": 1000,
+  "canvas_height": 1000,
+  "font_size": 48,
+  "text_y": 750,
+  "max_text_width": 850
+}

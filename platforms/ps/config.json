@@ -1,0 +1,19 @@
+{
+  "input_url": "https://raw.githubusercontent.com/maysaleba/maysaleba.github.io/main/src/csvjsontr.json",
+  "output_file": "output/cheapest_ps.json",
+  "exported_tracker": "trackers/already_exported_ps.json",
+  "force_file": "force/force_include_ps.json",
+  "fields_to_convert": {
+    "SalePrice": "tryExchange"
+  },
+  "argentina_logic": false,
+  "sort_mode": "popularity",
+  "use_exported_tracker": false,
+  "fb_page_id": "110345971129305",
+  "fb_image_folder": "output_images_ps",
+  "fb_post_title": "Trending PSN Games On Sale",
+  "fb_comments": [
+    "How to buy from Turkey PSN\n1. PS Turkey Account\nKung wala pa, pwede ka mag pagawa ng account sa Regionality Discord Server for P100:\nhttps://discord.gg/regionality\n2. Purchase PS Turkey Gift Card from SEAGM:\nhttps://invl.me/clmq49s\n3. Redeem the Gift Card and Purchase the game of your choice on your PS4/PS5!",
+    "See all Playstation Games on Sale:\nhttps://maysaleba.com/playstation"
+  ]
+}

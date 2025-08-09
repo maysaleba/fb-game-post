@@ -1,0 +1,34 @@
+{
+  "input_url": "https://raw.githubusercontent.com/maysaleba/maysaleba.github.io/main/src/csvjson.json",
+  "output_file": "output/cheapest_switch.json",
+  "exported_tracker": "trackers/already_exported_switch.json",
+  "force_file": "force/force_include_switch.json",
+  "fields_to_convert": {
+    "ArgentinaPrice": "arsExchange",
+    "AustraliaPrice": "audExchange",
+    "BrazilPrice": "brlExchange",
+    "CanadaPrice": "cadExchange",
+    "NewZealandPrice": "nzdExchange",
+    "ColombiaPrice": "copExchange",
+    "MexicoPrice": "mxnExchange",
+    "PeruPrice": "penExchange",
+    "PolandPrice": "plnExchange",
+    "NorwayPrice": "nokExchange",
+    "SouthafricaPrice": "zarExchange",
+    "SingaporePrice": "sgdExchange",
+    "HongkongPrice": "hkdExchange",
+    "TurkeyPrice": "tryExchange",
+    "SalePrice": "usdExchange"
+  },
+  "argentina_logic": true,
+  "sort_mode": "popularity",
+  "use_exported_tracker": true,
+    "fb_page_id": "110345971129305",
+  "fb_image_folder": "output_images_switch",
+  "fb_post_title": "Trending eShop Games On Sale",
+  "fb_comments": [
+    "How to buy from Argentina eShop:\nmaysaleba.com/pasabuy\n\nHow to buy from other eShop regions:\nhttps://maysaleba.com/faq",
+    "Buy eShop Codes (US)\n👉 Shopee: https://s.shopee.ph/8AKkPpni9m\n👉 Lazada: bit.ly/3L2qm2e\n👉 Codashop: bit.ly/3pxXLXT",
+    "See all Nintendo Switch Games on Sale:\nmaysaleba.com/switch"
+  ]
+}
