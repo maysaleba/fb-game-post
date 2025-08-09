@@ -43,9 +43,18 @@ headers = {
 }
 
 # Step 3: Loop through games
+slug_overrides = {
+    "survival-kids": "survival-kids--1",
+    "doom": "doom--1"
+}
+
 results = []
 for game in games:
     slug = game['slug']
+
+    # Apply slug override if exists
+    slug = slug_overrides.get(slug, slug)
+
     game_query = f'where slug = "{slug}"; fields id;'
     game_res = requests.post(GAMES_URL, headers=headers, data=game_query)
     game_data = game_res.json()
