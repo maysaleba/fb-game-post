@@ -45,7 +45,8 @@ headers = {
 # Step 3: Loop through games
 slug_overrides = {
     "survival-kids": "survival-kids--1",
-    "doom": "doom--1"
+    "doom": "doom--1",
+    "blasphemous-2": "blasphemous-ii"
 }
 
 results = []
