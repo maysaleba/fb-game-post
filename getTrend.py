@@ -49,7 +49,7 @@ USE_ARGENTINA_LOGIC = config.get("argentina_logic", False)
 
 # === Constants ===
 EXPIRY_DAYS = 5
-MAX_GAMES = 50
+MAX_GAMES = 10
 CANDIDATE_POOL_LIMIT = 300
 
 # === Load games from URL ===
