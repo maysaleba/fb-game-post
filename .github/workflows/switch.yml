@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: switch-post
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   run-scripts:
@@ -17,8 +17,8 @@ jobs:
 
     env:
       PLATFORM: switch
-      # Used by facebookPost.py
       FB_PAGE_ACCESS_TOKEN: ${{ secrets.FB_PAGE_ACCESS_TOKEN_SWITCH }}
+      CACHE_PREFIX: switch-data-v1
 
     steps:
       - name: Checkout repo
@@ -45,20 +45,25 @@ jobs:
             pip install requests pillow
           fi
 
-      # === Persisted data (restore at start) ===
+      # --- Restore persisted JSONs (use latest with prefix) ---
       - name: Restore export tracker & force list (switch)
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             trackers/already_exported_switch.json
             force/force_include_switch.json
-          key: switch-data-v1
+          key: ${{ env.CACHE_PREFIX }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ env.CACHE_PREFIX }}-
 
-      # === Chain your scripts ===
+      # --- Chain your scripts ---
       - name: 1) Build trending JSON
         run: python getTrend.py "$PLATFORM"
 
       - name: 2) Enrich with screenshots
+        env:
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
         run: python getScreenshots.py "$PLATFORM"
 
       - name: 3) Generate images
@@ -67,14 +72,14 @@ jobs:
       - name: 4) Post to Facebook
         run: python facebookPost.py "$PLATFORM"
 
-      # Ensure files exist so cache-save never fails (even on partial failures)
+      # --- Ensure files exist so cache save never fails ---
       - name: Ensure persisted files exist (switch)
         if: always()
         run: |
           [ -f trackers/already_exported_switch.json ] || : > trackers/already_exported_switch.json
           [ -f force/force_include_switch.json ] || : > force/force_include_switch.json
 
-      # === Persisted data (save at end) ===
+      # --- Save updated JSONs with a unique key (no collisions) ---
       - name: Save export tracker & force list (switch)
         if: always()
         uses: actions/cache/save@v4
@@ -82,4 +87,4 @@ jobs:
           path: |
             trackers/already_exported_switch.json
             force/force_include_switch.json
-          key: switch-data-v1
+          key: ${{ env.CACHE_PREFIX }}-${{ github.run_id }}
