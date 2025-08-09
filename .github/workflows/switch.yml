@@ -17,7 +17,8 @@ jobs:
 
     env:
       PLATFORM: switch
-      FB_PAGE_ACCESS_TOKEN: ${{ secrets.FB_PAGE_ACCESS_TOKEN_TEST }}
+      FB_PAGE_ACCESS_TOKEN_TEST: ${{ secrets.FB_PAGE_ACCESS_TOKEN_TEST }}
+      FB_PAGE_ACCESS_TOKEN_LIVE: ${{ secrets.FB_PAGE_ACCESS_TOKEN_LIVE }}
       CACHE_PREFIX: switch-data-v1
 
     steps:
