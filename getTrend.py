@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 def clean_slug(slug: str, platform: str) -> str:
     if platform == "switch":
-        return slug.replace("-switch", "").replace("-switch-2","")
+        return slug.replace("-switch-2", "").replace("-switch", "")
     elif platform == "ps":
         return slug.replace("-ps4", "").replace("-ps5", "")
     return slug  # default fallback
