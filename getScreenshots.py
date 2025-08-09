@@ -71,6 +71,8 @@ for game in games:
     game_entry['screenshots'] = screenshot_urls
     results.append(game_entry)
 
+os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
+
 # Step 4: Save results
 with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
     json.dump(results, f, indent=2)

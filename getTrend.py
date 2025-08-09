@@ -238,6 +238,10 @@ for game in new_candidates:
         export_data.append(entry)
         exported_slugs.add(game.get("slug_clean", ""))
 
+# ensure parent dirs exist before writing
+os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
+os.makedirs(os.path.dirname(EXPORTED_TRACKER), exist_ok=True)
+
 # === Save JSON export ===
 with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
     json.dump(export_data, f, indent=2, ensure_ascii=False)
