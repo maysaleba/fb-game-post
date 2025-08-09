@@ -49,6 +49,10 @@ for game in games:
     game_query = f'where slug = "{slug}"; fields id;'
     game_res = requests.post(GAMES_URL, headers=headers, data=game_query)
     game_data = game_res.json()
+
+    # Add this debug line:
+    print(f"DEBUG: slug={slug}, IGDB returned: {game_data}")
+    
     if not game_data:
         continue
     game_id = game_data[0]['id']
