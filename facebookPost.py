@@ -27,13 +27,10 @@ PAGE_ID = cfg.get("fb_page_id", "110345971129305")
 
 
 # ==== TEST TOKEN ===
-#ACCESS_TOKEN = os.environ.get("FB_PAGE_ACCESS_TOKEN") or cfg.get("fb_access_token") or \
-#    "EAAQQDe5YQC4BPJPPsPMXxsPYJ3gblJs3SDsCYG25QTlhIgMj2lrjR6X9VP9kYxdX1PI3Ty01FNsviagC0UbxwvISknFb870L3NUZBQ6bL1EXR7YOT0ndsMfO2z1aNZAK2V8BVgKlrZAfuQZBDCMIVn2yRkcPdG4w8eR4HaReV4CUShxMHubyZBQoSAqGOngZCvAeA9lvTisnuEqSiiRlmq6TsZD"
-
+ACCESS_TOKEN = os.environ.get("FB_PAGE_ACCESS_TOKEN_TEST") or cfg.get("fb_access_token")
 
 # ==== LIVE TOKEN ===
-ACCESS_TOKEN = os.environ.get("FB_PAGE_ACCESS_TOKEN") or cfg.get("fb_access_token") or \
-   "EAAKiZA2yp9csBPLlAqZBP3vc8HZBZCyhZChHalUT4mUBrl7vDtZCjZC9ZCnZBx5G5dewt7LwcuSp74caWKz3RzbshTda4COlZB3p9ZCMp6fUuApVW3au43mfIafnKysyGC3joWGHyAtUDsQuMwZCnNg5QSP0scfyWy8iAZByuZBfw23bgzIS1C2AORoRaSskinwdohvG20NRLYZC2MZD"
+#ACCESS_TOKEN = os.environ.get("FB_PAGE_ACCESS_TOKEN_LIVE") or cfg.get("fb_access_token")
 
 IMAGE_FOLDER = cfg.get("fb_image_folder")
 POST_TITLE = cfg.get("fb_post_title", "Trending Games On Sale")
