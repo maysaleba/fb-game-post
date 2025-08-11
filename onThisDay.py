@@ -94,14 +94,15 @@ def filter_by_release_month_day(items, month, day):
     return matched
 
 def pick_entry_score_pop_year(entries, ph_year):
-    """Sort by SCORE desc, Popularity desc, then prefer current-year matches."""
+    """Sort by Popularity desc, SCORE desc, then prefer current-year matches."""
     def key(e):
-        score = safe_float(e.get("SCORE"), -1.0)
-        pop   = safe_float(e.get("Popularity"), -1.0)
+        pop   = safe_float(e.get("Popularity"), -1.0)  # now first
+        score = safe_float(e.get("SCORE"), -1.0)       # now second
         dt    = parse_release_date_any(e.get("ReleaseDate"))
         year_match = 1 if (dt and dt.year == ph_year) else 0
-        return (score, pop, year_match)
-    if not entries: return None
+        return (pop, score, year_match)
+    if not entries:
+        return None
     return sorted(entries, key=key, reverse=True)[0]
 
 def get_igdb_token(client_id, client_secret):
@@ -260,6 +261,12 @@ def main():
     data = fetch_json(INPUT_LOC)
     if not isinstance(data, list) or not data:
         print("Source JSON is empty or not a list. Exiting.")
+        return
+    
+    # Keep only entries where ESRBRating is empty or missing
+    data = [item for item in data if not str(item.get("ESRBRating", "")).strip()]
+    if not data:
+        print("No entries with empty ESRBRating. Exiting.")
         return
 
     # Month-day input
