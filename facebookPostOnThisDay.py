@@ -7,7 +7,7 @@ OUTPUT_DIR = "output"  # where your collage_*.jpg and screenshots_*.json are sav
 PAGE_ID = os.getenv("FB_PAGE_ID", "110345971129305")
 
 # Prefer env for security (GitHub Actions: add FB_PAGE_ACCESS_TOKEN_LIVE to Secrets)
-ACCESS_TOKEN = os.getenv("FB_PAGE_ACCESS_TOKEN_LIVE", "EAAQQDe5YQC4BPJPPsPMXxsPYJ3gblJs3SDsCYG25QTlhIgMj2lrjR6X9VP9kYxdX1PI3Ty01FNsviagC0UbxwvISknFb870L3NUZBQ6bL1EXR7YOT0ndsMfO2z1aNZAK2V8BVgKlrZAfuQZBDCMIVn2yRkcPdG4w8eR4HaReV4CUShxMHubyZBQoSAqGOngZCvAeA9lvTisnuEqSiiRlmq6TsZD")
+ACCESS_TOKEN = os.getenv("FB_PAGE_ACCESS_TOKEN_TEST", "EAAQQDe5YQC4BPJPPsPMXxsPYJ3gblJs3SDsCYG25QTlhIgMj2lrjR6X9VP9kYxdX1PI3Ty01FNsviagC0UbxwvISknFb870L3NUZBQ6bL1EXR7YOT0ndsMfO2z1aNZAK2V8BVgKlrZAfuQZBDCMIVn2yRkcPdG4w8eR4HaReV4CUShxMHubyZBQoSAqGOngZCvAeA9lvTisnuEqSiiRlmq6TsZD")
 
 # Optional local fallback (if you want). If present, should contain {"fb_access_token":"..."}
 LOCAL_TOKEN_JSON = "fb_local.json"
