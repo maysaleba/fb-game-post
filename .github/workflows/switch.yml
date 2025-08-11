@@ -3,8 +3,8 @@ name: Switch Post Runner
 on:
   workflow_dispatch:
   schedule:
-    # Runs ~9:30 AM NZ time Mondays & Thursdays (21:30 UTC Sun & Wed)
-    - cron: "30 21 * * 0,3"
+    # Runs ~9:30 AM NZT Mondays, Wednesdays, and Saturdays (21:30 UTC previous day)
+    - cron: "30 21 * * 0,2,5"
 
 concurrency:
   group: switch-post
