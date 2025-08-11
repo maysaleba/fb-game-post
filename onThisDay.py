@@ -182,8 +182,14 @@ def make_collage_1242(urls, out_path,
                       margin=GRID_MARGIN,
                       gutter=GRID_GUTTER,
                       bg=GRID_BG):
-    """Fixed 1242 width, 2 cols, 621x387 cells; single image keeps original aspect."""
-    urls = [u for u in urls if u]  # sanitize
+    """
+    Fixed 1242px width, 2 columns, 621x387 cells.
+    - If only 1 image → keep aspect (no crop), width=1242.
+    - If odd number of images (e.g., 5) → the last image spans both columns
+      AND two cell heights (size = 1242x774), preserving the single-cell aspect.
+    - All tiles are center-crop to their target rectangles.
+    """
+    urls = [u for u in urls if u]
     if not urls:
         raise ValueError("No image URLs provided")
 
@@ -197,13 +203,23 @@ def make_collage_1242(urls, out_path,
         canvas.save(out_path, "JPEG", quality=90, optimize=True, progressive=True)
         return out_path
 
-    # Grid mode
     n = len(urls)
-    rows = math.ceil(n / cols)
-    # total width already fixed; compute total height
-    total_w = canvas_w
-    total_h = rows * cell_h + (rows - 1) * gutter + 2 * margin
-    canvas  = Image.new("RGB", (total_w, total_h), bg)
+    last_wide = (n % cols == 1)  # odd count → last spans 2 cols & 2 rows
+    rows_base = n // cols        # full 2-tile rows before the last one
+
+    # Compute total height (no gutter inside the double-height last tile)
+    if last_wide:
+        # height = full rows + last double-height tile
+        base_height  = rows_base * cell_h
+        base_gutters = max(rows_base - 1, 0) * gutter
+        # add one gutter between base rows and the last double tile (if there are base rows)
+        join_gutter  = gutter if rows_base > 0 else 0
+        total_h = 2 * margin + base_height + base_gutters + join_gutter + (2 * cell_h)
+    else:
+        rows = rows_base  # even count → exactly full rows
+        total_h = 2 * margin + rows * cell_h + max(rows - 1, 0) * gutter
+
+    canvas = Image.new("RGB", (canvas_w, total_h), bg)
 
     x0 = margin
     y  = margin
@@ -213,21 +229,31 @@ def make_collage_1242(urls, out_path,
         try:
             img = _download_image(url)
         except Exception:
-            # fallback blank tile if download fails
-            tile = Image.new("RGB", (cell_w, cell_h), bg)
+            img = Image.new("RGB", (cell_w, cell_h), bg)
+
+        is_last = (idx == n - 1)
+
+        if last_wide and is_last:
+            # Last tile spans both columns AND two cell heights → 1242x774
+            target_w = (cell_w * 2) + gutter  # gutter is 0 in your config; safe to include
+            target_w = (canvas_w - 2 * margin)  # ensure exact full width inside margins
+            target_h = cell_h * 2
+            tile = _center_crop_cover(img, target_w, target_h)
+            canvas.paste(tile, (margin, y))
+            break
         else:
+            # Normal single cell
             tile = _center_crop_cover(img, cell_w, cell_h)
-
-        x = x0 + col * (cell_w + gutter)
-        canvas.paste(tile, (x, y))
-
-        col += 1
-        if col >= cols:
-            col = 0
-            y += cell_h + gutter
+            x = x0 + col * (cell_w + gutter)
+            canvas.paste(tile, (x, y))
+            col += 1
+            if col >= cols:
+                col = 0
+                y += cell_h + gutter
 
     canvas.save(out_path, "JPEG", quality=90, optimize=True, progressive=True)
     return out_path
+
 
 # ========= MAIN =========
 def main():
