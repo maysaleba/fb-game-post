@@ -13,7 +13,7 @@ INPUT_LOC = "https://raw.githubusercontent.com/maysaleba/maysaleba.github.io/mai
 OUTPUT_DIR = "output"
 
 # Collage (fixed width, dynamic height)
-CANVAS_WIDTH = 1820
+CANVAS_WIDTH = 1242
 GRID_COLS = 2
 GRID_MODE = "cover"  # 'fit' or 'cover'
 GRID_MARGIN = 0
