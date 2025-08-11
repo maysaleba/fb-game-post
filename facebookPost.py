@@ -3,7 +3,7 @@ import os
 import sys
 import json
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import time
 
 # ===== CLI: platform =====
@@ -87,7 +87,10 @@ if not uploaded_media:
     print("⚠️ No images uploaded successfully.")
     sys.exit(0)
 
-post_message = f"{POST_TITLE} - {datetime.now().strftime('%b %d %Y')}"
+PH_TZ = timezone(timedelta(hours=8))  # UTC+8
+
+post_message = f"{POST_TITLE} - {datetime.now(PH_TZ).strftime('%b %d %Y')}"
+#post_message = f"{POST_TITLE} - {datetime.now().strftime('%b %d %Y')}"
 print(f"\n📝 Publishing post with {len(uploaded_media)} images...")
 
 post_url = f'https://graph.facebook.com/v23.0/{PAGE_ID}/feed'
