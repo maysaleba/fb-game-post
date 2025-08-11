@@ -55,6 +55,7 @@ def build_caption(meta):
     title     = meta.get("title", "").strip()
     platform  = meta.get("platform", "").strip()
     slug = meta.get("slug","").strip()
+    percent_off = meta.get("percent_off","").strip()
     summary   = clean_summary(meta.get("summary", ""))
     release_str = meta.get("source_release_date", "")
     matched_on = meta.get("matched_on", "")  # "MM-DD"
@@ -96,11 +97,11 @@ def build_caption(meta):
         # Platform-specific link
     platform_lower = platform.strip().lower()
     if platform_lower == "nintendo switch":
-        parts.append(f"🎯 On Sale Now! maysaleba.com/games/{slug}-switch")
+        parts.append(f"🎯 Naka {percent_off} OFF! maysaleba.com/games/{slug}-switch")
     elif platform_lower == "nintendo switch 2":
-        parts.append(f"🎯 On Sale Now! maysaleba.com/games/{slug}-switch-2")
+        parts.append(f"🎯 Naka {percent_off} OFF! maysaleba.com/games/{slug}-switch-2")
     else:
-        parts.append(f"🎯 On Sale Now! maysaleba.com/games/{slug}")
+        parts.append(f"🎯 Naka {percent_off} OFF! maysaleba.com/games/{slug}")
     if summary:
         parts.append(f"🕹️ Summary: {summary}")
 
