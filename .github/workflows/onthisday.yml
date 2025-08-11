@@ -56,7 +56,7 @@ jobs:
     if: ${{ inputs.post_to_facebook == true }}
     runs-on: ubuntu-latest
     env:
-      FB_PAGE_ACCESS_TOKEN_LIVE: ${{ secrets.FB_PAGE_ACCESS_TOKEN_LIVE }}
+      FB_PAGE_ACCESS_TOKEN_TEST: ${{ secrets.FB_PAGE_ACCESS_TOKEN_TEST }}
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
