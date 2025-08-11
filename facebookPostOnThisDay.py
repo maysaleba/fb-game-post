@@ -93,10 +93,7 @@ def build_caption(meta):
     if date_str:
         parts.append("🎮 On This Day in Gaming Sale!")
     parts.append(main_line)
-    if summary:
-        parts.append(f"🕹️ Summary: {summary}")
-
-    # Platform-specific link
+        # Platform-specific link
     platform_lower = platform.strip().lower()
     if platform_lower == "nintendo switch":
         parts.append(f"🎯 On Sale Now! maysaleba.com/games/{slug}-switch")
@@ -104,6 +101,8 @@ def build_caption(meta):
         parts.append(f"🎯 On Sale Now! maysaleba.com/games/{slug}-switch-2")
     else:
         parts.append(f"🎯 On Sale Now! maysaleba.com/games/{slug}")
+    if summary:
+        parts.append(f"🕹️ Summary: {summary}")
 
     parts.append("#OnThisDay #Gaming #NintendoSwitch")  # adjust hashtags as needed
     return "\n\n".join(parts).strip()
