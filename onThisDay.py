@@ -319,6 +319,7 @@ def main():
         "slug": game.get("slug"),
         "igdb_id": game.get("id"),
         "platform": best.get("platform", ""),
+        "percent_off": best.get("PercentOff", ""),
         "screenshot_urls": urls,
         "summary": game.get("summary", ""),
         "source_release_date": best.get("ReleaseDate"),
