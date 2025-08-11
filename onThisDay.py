@@ -2,97 +2,84 @@ import os
 import sys
 import json
 import time
+import math
+import io
 import requests
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
-
-from collage import make_collage  # uses canvas_w, cols, aspect_ratio, ...
+from PIL import Image
 
 # ========= CONFIG =========
-INPUT_LOC = "https://raw.githubusercontent.com/maysaleba/maysaleba.github.io/main/src/csvjson.json"
-OUTPUT_DIR = "output"
+INPUT_LOC   = "https://raw.githubusercontent.com/maysaleba/maysaleba.github.io/main/src/csvjson.json"
+OUTPUT_DIR  = "output"
 
-# Collage (fixed width, dynamic height)
+# Canvas/grid (fixed width; dynamic height)
 CANVAS_WIDTH = 1242
-GRID_COLS = 2
-GRID_MODE = "cover"  # 'fit' or 'cover'
-GRID_MARGIN = 0
-GRID_GUTTER = 0
-GRID_BG = (16, 16, 16)
+GRID_COLS    = 2
+CELL_W       = 621
+# Pixels must be integers; 386.75 rounded to closest int:
+CELL_H       = 387
+GRID_MARGIN  = 0
+GRID_GUTTER  = 0
+GRID_BG      = (16, 16, 16)
 
 # IGDB creds (use GitHub Actions secrets ideally)
-CLIENT_ID = os.getenv("IGDB_CLIENT_ID", "jxnpf283ohcc4z1ou74w2vzkdew9vi")
+CLIENT_ID     = os.getenv("IGDB_CLIENT_ID", "jxnpf283ohcc4z1ou74w2vzkdew9vi")
 CLIENT_SECRET = os.getenv("IGDB_CLIENT_SECRET", "q876s02axklhzfu740cznm498arxv2")
 
-TOKEN_URL = "https://id.twitch.tv/oauth2/token"
-GAMES_URL = "https://api.igdb.com/v4/games"
-SCREENSHOTS_URL = "https://api.igdb.com/v4/screenshots"
+TOKEN_URL        = "https://id.twitch.tv/oauth2/token"
+GAMES_URL        = "https://api.igdb.com/v4/games"
+SCREENSHOTS_URL  = "https://api.igdb.com/v4/screenshots"
 
 # ========= HELPERS =========
 def slug_variants(slug: str) -> list:
     variants = [slug]
-    if "-switch" in slug:
-        variants.append(slug.replace("-switch", ""))
-    if "-ps4" in slug:
-        variants.append(slug.replace("-ps4", ""))
-    if "-ps5" in slug:
-        variants.append(slug.replace("-ps5", ""))
+    if "-switch" in slug: variants.append(slug.replace("-switch", ""))
+    if "-ps4" in slug:    variants.append(slug.replace("-ps4", ""))
+    if "-ps5" in slug:    variants.append(slug.replace("-ps5", ""))
     if slug.endswith("-nintendo-switch"):
         variants.append(slug.replace("-nintendo-switch", ""))
     manual = {"doom": "doom--1", "survival-kids": "survival-kids--1"}
-    if slug in manual:
-        variants.insert(0, manual[slug])
+    if slug in manual: variants.insert(0, manual[slug])
     seen, unique = set(), []
     for s in variants:
         if s not in seen:
-            seen.add(s)
-            unique.append(s)
+            seen.add(s); unique.append(s)
     return unique
 
 def safe_float(x, default=0.0):
     try:
         if x is None: return default
-        if isinstance(x, (int, float)): return float(x)
-        return float(str(x).replace(",", "").strip())
-    except:
-        return default
+        if isinstance(x,(int,float)): return float(x)
+        return float(str(x).replace(",","").strip())
+    except: return default
 
 def select_screenshots(urls):
     n = len(urls)
     if n > 8: return urls[:8]
-    if n in (6, 7): return urls[:5]
+    if n in (6,7): return urls[:5]
     return urls
 
 def get_today_ph_date():
-    try:
-        return datetime.now(ZoneInfo("Asia/Manila")).date()
-    except Exception:
-        return datetime.now(timezone(timedelta(hours=8))).date()
+    try: return datetime.now(ZoneInfo("Asia/Manila")).date()
+    except Exception: return datetime.now(timezone(timedelta(hours=8))).date()
 
 def fetch_json(url, timeout=30):
-    r = requests.get(url, timeout=timeout)
-    r.raise_for_status()
+    r = requests.get(url, timeout=timeout); r.raise_for_status()
     return r.json()
 
 def parse_release_date_any(s: str):
     s = (s or "").strip()
-    if not s:
-        return None
+    if not s: return None
+    try: return datetime.strptime(s, "%Y-%m-%d").date()
+    except ValueError: pass
     try:
-        return datetime.strptime(s, "%Y-%m-%d").date()
-    except ValueError:
-        pass
-    try:
-        if s.endswith("Z"):
-            s = s[:-1] + "+00:00"
+        if s.endswith("Z"): s = s[:-1] + "+00:00"
         return datetime.fromisoformat(s).date()
-    except ValueError:
-        pass
+    except ValueError: pass
     for fmt in ("%m/%d/%Y", "%d %B %Y", "%B %d, %Y"):
-        try:
-            return datetime.strptime(s, fmt).date()
-        except ValueError:
-            continue
+        try: return datetime.strptime(s, fmt).date()
+        except ValueError: continue
     return None
 
 def filter_by_release_month_day(items, month, day):
@@ -101,8 +88,7 @@ def filter_by_release_month_day(items, month, day):
     ph_year = get_today_ph_date().year
     for it in items:
         dt = parse_release_date_any(it.get("ReleaseDate"))
-        if not dt:
-            continue
+        if not dt: continue
         if dt.month == month and dt.day == day and dt.year <= ph_year:
             matched.append(it)
     return matched
@@ -115,15 +101,12 @@ def pick_entry_score_pop_year(entries, ph_year):
         dt    = parse_release_date_any(e.get("ReleaseDate"))
         year_match = 1 if (dt and dt.year == ph_year) else 0
         return (score, pop, year_match)
-    if not entries:
-        return None
-    # Sort descending for all three criteria
+    if not entries: return None
     return sorted(entries, key=key, reverse=True)[0]
 
 def get_igdb_token(client_id, client_secret):
     data = {"client_id": client_id, "client_secret": client_secret, "grant_type": "client_credentials"}
-    r = requests.post(TOKEN_URL, data=data, timeout=30)
-    r.raise_for_status()
+    r = requests.post(TOKEN_URL, data=data, timeout=30); r.raise_for_status()
     return r.json()["access_token"]
 
 def igdb_headers(token):
@@ -139,13 +122,11 @@ def query_game_by_slug(token, slug):
     r.raise_for_status()
     res = r.json()
     exact = [g for g in res if g.get("slug") == slug]
-    if exact:
-        return exact[0]
+    if exact: return exact[0]
     return res[0] if res else None
 
 def query_screenshots(token, screenshot_ids):
-    if not screenshot_ids:
-        return []
+    if not screenshot_ids: return []
     headers = igdb_headers(token)
     id_list = ",".join(str(i) for i in screenshot_ids)
     body = f"fields id,image_id,width,height; where id = ({id_list}); limit 50;"
@@ -159,6 +140,94 @@ def query_screenshots(token, screenshot_ids):
         if image_id:
             urls.append(f"https://images.igdb.com/igdb/image/upload/t_1080p/{image_id}.jpg")
     return urls
+
+# ======== IMAGE / COLLAGE HELPERS (exact behavior you asked) ========
+def _download_image(url, timeout=30):
+    r = requests.get(url, timeout=timeout)
+    r.raise_for_status()
+    return Image.open(io.BytesIO(r.content)).convert("RGB")
+
+def _center_crop_cover(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
+    """Scale to cover and center-crop to exactly target size."""
+    src_w, src_h = img.size
+    src_aspect = src_w / src_h
+    tgt_aspect = target_w / target_h
+
+    if src_aspect > tgt_aspect:
+        # too wide → match height, crop sides
+        new_h = target_h
+        new_w = int(round(new_h * src_aspect))
+    else:
+        # too tall/narrow → match width, crop top/bottom
+        new_w = target_w
+        new_h = int(round(new_w / src_aspect))
+
+    img_resized = img.resize((new_w, new_h), Image.LANCZOS)
+    left = (new_w - target_w) // 2
+    top  = (new_h - target_h) // 2
+    return img_resized.crop((left, top, left + target_w, top + target_h))
+
+def _fit_keep_aspect(img: Image.Image, target_w: int) -> Image.Image:
+    """Scale to given width and keep aspect ratio."""
+    w, h = img.size
+    new_w = target_w
+    new_h = int(round(h * (new_w / w)))
+    return img.resize((new_w, new_h), Image.LANCZOS)
+
+def make_collage_1242(urls, out_path,
+                      canvas_w=CANVAS_WIDTH,
+                      cols=GRID_COLS,
+                      cell_w=CELL_W,
+                      cell_h=CELL_H,
+                      margin=GRID_MARGIN,
+                      gutter=GRID_GUTTER,
+                      bg=GRID_BG):
+    """Fixed 1242 width, 2 cols, 621x387 cells; single image keeps original aspect."""
+    urls = [u for u in urls if u]  # sanitize
+    if not urls:
+        raise ValueError("No image URLs provided")
+
+    # Single image → preserve aspect, width=1242
+    if len(urls) == 1:
+        img = _download_image(urls[0])
+        fitted = _fit_keep_aspect(img, canvas_w)
+        canvas_h = fitted.height
+        canvas = Image.new("RGB", (canvas_w, canvas_h), bg)
+        canvas.paste(fitted, (0, 0))
+        canvas.save(out_path, "JPEG", quality=90, optimize=True, progressive=True)
+        return out_path
+
+    # Grid mode
+    n = len(urls)
+    rows = math.ceil(n / cols)
+    # total width already fixed; compute total height
+    total_w = canvas_w
+    total_h = rows * cell_h + (rows - 1) * gutter + 2 * margin
+    canvas  = Image.new("RGB", (total_w, total_h), bg)
+
+    x0 = margin
+    y  = margin
+    col = 0
+
+    for idx, url in enumerate(urls):
+        try:
+            img = _download_image(url)
+        except Exception:
+            # fallback blank tile if download fails
+            tile = Image.new("RGB", (cell_w, cell_h), bg)
+        else:
+            tile = _center_crop_cover(img, cell_w, cell_h)
+
+        x = x0 + col * (cell_w + gutter)
+        canvas.paste(tile, (x, y))
+
+        col += 1
+        if col >= cols:
+            col = 0
+            y += cell_h + gutter
+
+    canvas.save(out_path, "JPEG", quality=90, optimize=True, progressive=True)
+    return out_path
 
 # ========= MAIN =========
 def main():
@@ -185,11 +254,9 @@ def main():
         print(f"No entries with ReleaseDate matching month/day == {month:02d}-{day:02d}. Exiting.")
         return
 
-    ph_today = get_today_ph_date()
-    ph_year  = ph_today.year
+    ph_year = get_today_ph_date().year
     print(f"Matched {len(todays)} entries for {month:02d}-{day:02d} (<= {ph_year}).")
 
-    # === NEW PRIORITY: SCORE -> Popularity -> Year match ===
     best = pick_entry_score_pop_year(todays, ph_year)
     if not best:
         print("No eligible entry found after selection rules. Exiting.")
@@ -197,8 +264,7 @@ def main():
 
     slug = (best.get("Slug") or "").strip()
     if not slug:
-        print("Chosen entry has no Slug. Exiting.")
-        return
+        print("Chosen entry has no Slug. Exiting."); return
 
     dt = parse_release_date_any(best.get("ReleaseDate"))
     print(f"Chosen Title: {best.get('Title')}")
@@ -207,12 +273,10 @@ def main():
     print(f"Picked by: SCORE→Popularity→YearMatch (ReleaseDate={best.get('ReleaseDate')})")
 
     # IGDB lookups
-    token = get_igdb_token(CLIENT_ID, CLIENT_SECRET)
-    time.sleep(0.35)
+    token = get_igdb_token(CLIENT_ID, CLIENT_SECRET); time.sleep(0.35)
     game = query_game_by_slug(token, slug)
     if not game:
-        print("No IGDB game found for slug variants. Exiting.")
-        return
+        print("No IGDB game found for slug variants. Exiting."); return
 
     screenshot_ids = game.get("screenshots") or []
     urls = query_screenshots(token, screenshot_ids) if screenshot_ids else []
@@ -243,16 +307,16 @@ def main():
     # Limit screenshots per your rule
     urls = select_screenshots(urls)
 
-    # Collage output (fixed width, dynamic height; last row spans full width if needed)
+    # Collage (fixed width 1242; 2 cols with center-crop cover; single image keeps aspect)
     out_jpg = os.path.join(OUTPUT_DIR, f"collage_{slug}.jpg")
     try:
-        make_collage(
+        make_collage_1242(
             urls,
             out_jpg,
             canvas_w=CANVAS_WIDTH,
             cols=GRID_COLS,
-            aspect_ratio=(16, 9),
-            mode=GRID_MODE,
+            cell_w=CELL_W,
+            cell_h=CELL_H,
             margin=GRID_MARGIN,
             gutter=GRID_GUTTER,
             bg=GRID_BG
