@@ -12,8 +12,8 @@ on:
         type: boolean
         default: true
   schedule:
-    # Daily at 09:30 NZ time (21:30 UTC)
-    - cron: "30 21 * * *"
+    # Runs at 01:00 UTC → 1 PM NZST / 2 PM NZDT
+    - cron: "0 1 * * *"
 
 permissions:
   contents: read
