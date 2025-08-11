@@ -48,7 +48,7 @@ PRICE_FIELD_TO_EXCHANGE = config["fields_to_convert"]
 USE_ARGENTINA_LOGIC = config.get("argentina_logic", False)
 
 # === Constants ===
-EXPIRY_DAYS = 5
+EXPIRY_DAYS = 7
 MAX_GAMES = 50
 CANDIDATE_POOL_LIMIT = 300
 
