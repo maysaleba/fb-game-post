@@ -2,18 +2,9 @@ name: On This Day (Collage → Facebook)
 
 on:
   workflow_dispatch:
-    inputs:
-      date_mm_dd:
-        description: 'Optional override date in MM-DD format (e.g., 08-21)'
-        required: false
-        type: string
-      post_to_facebook:
-        description: 'Post to Facebook after generating?'
-        type: boolean
-        default: true
   schedule:
-    # Runs at 01:50 UTC → 1:50 PM NZST / 2:50 PM NZDT
-    - cron: "50 1 * * *"
+    # Runs at 02:30 UTC → 2:30 PM NZST / 3:30 PM NZDT
+    - cron: "30 2 * * *"
 
 permissions:
   contents: read
@@ -36,15 +27,7 @@ jobs:
           pip install pillow requests tzdata
 
       - name: Run onThisDay.py
-        run: |
-          if [ -n "${{ inputs.date_mm_dd }}" ]; then
-            python onThisDay.py "${{ inputs.date_mm_dd }}"
-          else
-            python onThisDay.py
-          fi
-          
-      #- name: Run onThisDay.py
-      #  run: python onThisDay.py 08-14
+        run: python onThisDay.py
 
       - name: Upload output
         uses: actions/upload-artifact@v4
@@ -56,7 +39,6 @@ jobs:
 
   post:
     needs: generate
-    if: ${{ github.event_name == 'schedule' || inputs.post_to_facebook == true }}
     runs-on: ubuntu-latest
     env:
       FB_PAGE_ACCESS_TOKEN_TEST: ${{ secrets.FB_PAGE_ACCESS_TOKEN_TEST }}
