@@ -12,8 +12,8 @@ on:
         type: boolean
         default: true
   schedule:
-    # Runs at 01:00 UTC → 1 PM NZST / 2 PM NZDT
-    - cron: "0 1 * * *"
+    # Runs at 01:50 UTC → 1:50 PM NZST / 2:50 PM NZDT
+    - cron: "50 1 * * *"
 
 permissions:
   contents: read
@@ -56,7 +56,7 @@ jobs:
 
   post:
     needs: generate
-    if: ${{ inputs.post_to_facebook == true }}
+    if: ${{ github.event_name == 'schedule' || inputs.post_to_facebook == true }}
     runs-on: ubuntu-latest
     env:
       FB_PAGE_ACCESS_TOKEN_TEST: ${{ secrets.FB_PAGE_ACCESS_TOKEN_TEST }}
