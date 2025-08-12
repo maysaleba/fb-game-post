@@ -91,8 +91,8 @@ def build_caption(meta):
 
     # Assemble caption
     parts = []
-    if date_str:
-        parts.append("🎮 On This Day in Gaming Sale!")
+    #if date_str:
+    #    parts.append("🎮 On This Day in Gaming Sale!")
     parts.append(main_line)
         # Platform-specific link
     platform_lower = platform.strip().lower()
