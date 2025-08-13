@@ -56,8 +56,8 @@ def safe_float(x, default=0.0):
 
 def select_screenshots(urls):
     n = len(urls)
-    if n > 8: return urls[:8]
-    if n in (6,7): return urls[:5]
+    if n > 5: return urls[:5]
+  #  if n in (6,7): return urls[:5]
     return urls
 
 def get_today_ph_date():
