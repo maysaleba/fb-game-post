@@ -50,51 +50,18 @@ def clean_summary(text, max_len=500):
 
 def build_caption(meta):
     """
-    Builds a Facebook caption based on release date year vs today's PH year.
+    Builds a Facebook caption without 'x years ago...' or 'is releasing today!'.
     """
     title     = meta.get("title", "").strip()
     platform  = meta.get("platform", "").strip()
-    slug = meta.get("slug","").strip()
+    slug      = meta.get("slug","").strip()
     percent_off = meta.get("percent_off","").strip()
     summary   = clean_summary(meta.get("summary", ""))
-    release_str = meta.get("source_release_date", "")
-    matched_on = meta.get("matched_on", "")  # "MM-DD"
-
-    # Parse release date
-    release_year = None
-    try:
-        if release_str:
-            release_year = int(str(release_str)[:4])
-    except ValueError:
-        release_year = None
-
-    today_year = datetime.now(PH_TZ).year
-
-    # Build date_str (pretty month/day)
-    date_str = ""
-    if matched_on and re.match(r"^\d{2}-\d{2}$", matched_on):
-        month, day = matched_on.split("-")
-        try:
-            pretty = datetime(today_year, int(month), int(day)).strftime("%b %d")
-            date_str = pretty
-        except Exception:
-            date_str = matched_on
-
-    # Build main line
-    if release_year and release_year < today_year:
-        years_ago = today_year - release_year
-        main_line = f"{years_ago} year{'s' if years_ago > 1 else ''} ago, on this day, {title} has been released for the {platform}!"
-    elif release_year and release_year == today_year:
-        main_line = f"{title} for the {platform} is releasing today!"
-    else:
-        main_line = f"{title} for the {platform}"
 
     # Assemble caption
     parts = []
-    #if date_str:
-    #    parts.append("🎮 On This Day in Gaming Sale!")
-    parts.append(main_line)
-        # Platform-specific link
+
+    # Platform-specific link
     platform_lower = platform.strip().lower()
     if platform_lower == "nintendo switch":
         parts.append(f"🎯 Naka {percent_off} OFF! maysaleba.com/games/{slug}-switch")
@@ -102,11 +69,13 @@ def build_caption(meta):
         parts.append(f"🎯 Naka {percent_off} OFF! maysaleba.com/games/{slug}-switch-2")
     else:
         parts.append(f"🎯 Naka {percent_off} OFF! maysaleba.com/games/{slug}")
+
     if summary:
         parts.append(f"🕹️ Summary: {summary}")
 
     parts.append("#OnThisDay #Gaming #NintendoSwitch")  # adjust hashtags as needed
     return "\n\n".join(parts).strip()
+
 
 # === Main ===
 def main():
