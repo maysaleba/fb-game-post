@@ -90,7 +90,7 @@ SORT_MODE = config.get("sort_mode", "popularity")
 USE_EXPORTED_TRACKER = config.get("use_exported_tracker", True)
 
 # ========= CONSTANTS =========
-EXPIRY_DAYS = 7                    # fixed window length
+EXPIRY_DAYS = 14                    # fixed window length
 MAX_GAMES = 50
 CANDIDATE_POOL_LIMIT = 300
 
