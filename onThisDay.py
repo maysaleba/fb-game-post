@@ -26,7 +26,7 @@ GRID_BG      = (16, 16, 16)
 FONT_PATH          = "Axiforma-Black.otf"  # must exist in repo root
 BASE_FONT_SIZE_PX  = 88
 TITLE_MAX_WIDTH_PX = 1100
-STROKE_PX          = 8
+STROKE_PX          = 0
 TEXT_CENTER_Y      = 774  # y-axis center for the ENTIRE block of three lines
 LINE_SPACING_PX    = 10   # spacing between lines (visual gap)
 
