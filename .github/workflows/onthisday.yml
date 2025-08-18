@@ -3,7 +3,7 @@ name: On This Day (Collage → Facebook)
 on:
   workflow_dispatch:
   schedule:
-    - cron: '5 3 * * *'  # 6:51 AM NZST (18:51 UTC previous day)
+    - cron: '5 1 * * *'  # 6:51 AM NZST (18:51 UTC previous day)
 
 permissions:
   contents: read
