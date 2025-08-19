@@ -22,6 +22,16 @@ GRID_MARGIN  = 0
 GRID_GUTTER  = 0
 GRID_BG      = (16, 16, 16)
 
+# Gradient band geometry (solid center + fades)
+BAND_SOLID_HEIGHT = 200   # readable solid band height
+BAND_FADE          = 200  # fade above and below the solid band
+BAND_INNER_PADDING = 8    # small top/bottom padding inside the solid area
+
+
+# Allow text to extend this many pixels outside the solid band
+BAND_LEEWAY = 60   # try 60–80px; tweak until it looks good
+
+
 # Text overlay
 FONT_PATH          = "Axiforma-Black.otf"  # must exist in repo root
 BASE_FONT_SIZE_PX  = 88
@@ -29,6 +39,12 @@ TITLE_MAX_WIDTH_PX = 1100
 STROKE_PX          = 0
 TEXT_CENTER_Y      = 774  # y-axis center for the ENTIRE block of three lines
 LINE_SPACING_PX    = 10   # spacing between lines (visual gap)
+
+# Per-line max widths + minimum font size (for per-line auto-fit)
+LINE1_MAX_WIDTH_PX = 1100
+LINE2_MAX_WIDTH_PX = TITLE_MAX_WIDTH_PX
+LINE3_MAX_WIDTH_PX = 1100
+MIN_FONT_SIZE_PX   = 18
 
 # IGDB creds
 CLIENT_ID     = os.getenv("IGDB_CLIENT_ID", "jxnpf283ohcc4z1ou74w2vzkdew9vi")
@@ -65,7 +81,7 @@ def safe_float(x, default=0.0):
     except: return default
 
 def get_today_ph_date():
-    #return datetime(2025, 8, 20).date()
+    # return datetime(2025, 8, 20).date()  # <- handy for testing
     try: return datetime.now(ZoneInfo("Asia/Manila")).date()
     except Exception: return datetime.now(timezone(timedelta(hours=8))).date()
 
@@ -261,12 +277,11 @@ def make_collage_1242(urls, out_path,
     canvas.save(out_path, "JPEG", quality=90, optimize=True, progressive=True)
     return out_path
 
-# ======== TEXT OVERLAY ========
+# ======== TEXT OVERLAY / TYPOGRAPHY ========
 def _load_font(size_px):
     try:
         return ImageFont.truetype(FONT_PATH, size_px)
     except Exception:
-        # Fallback if font file isn't available; keeps the pipeline alive
         return ImageFont.load_default()
 
 def _text_size(draw, text, font, stroke):
@@ -276,15 +291,21 @@ def _text_size(draw, text, font, stroke):
     h = bbox[3] - bbox[1]
     return w, h
 
-def _fit_title_font(draw, title, base_size, max_width, stroke):
+def _fit_font_to_width(draw, text, base_size, max_width, stroke, min_px=MIN_FONT_SIZE_PX, step=2):
+    """
+    Returns (font, size_px) such that 'text' fits within 'max_width' including stroke.
+    If text is empty, returns base font immediately.
+    """
+    if not text:
+        return _load_font(base_size), base_size
     size = base_size
-    while size > 8:  # hard floor to avoid zero/negative sizes
+    while size > min_px:
         f = _load_font(size)
-        w, _ = _text_size(draw, title, f, stroke)
+        w, _ = _text_size(draw, text, f, stroke)
         if w <= max_width:
             return f, size
-        size -= 2
-    return _load_font(8), 8
+        size -= step
+    return _load_font(min_px), min_px
 
 def _map_platform(raw):
     if not raw:
@@ -296,132 +317,206 @@ def _map_platform(raw):
         return "Switch 2"
     return raw
 
-def add_gradient_background(img, center_y, height=200, fade=200):
+def _format_percent_off(raw):
+    s = (str(raw or "").strip()).replace("%","")
+    if not s:
+        return ""
+    try:
+        v = float(s)
+        if v.is_integer():
+            return f"{int(v)}%"
+        return f"{v:.0f}%"
+    except:
+        # if it's something like "70% OFF", normalize to "70%"
+        digits = "".join(ch for ch in s if ch.isdigit())
+        return f"{digits}%" if digits else ""
+
+def add_gradient_background(img, center_y, height=BAND_SOLID_HEIGHT, fade=BAND_FADE):
     """
-    Add a horizontal black band centered at center_y with transparent gradients
-    above and below. Works even if the band extends beyond the image bounds.
+    Paint a horizontal black band centered at center_y with transparent fades above/below.
+    Returns (img_with_band, solid_top, solid_bottom) so caller can keep text inside.
     """
     img = img.convert("RGBA")
     band_h = height + 2*fade
 
-    # Build vertical alpha gradient: 0..255 (fade in), 255 (solid), 255..0 (fade out)
+    # Vertical alpha gradient: fade-in -> solid -> fade-out
     alpha_col = Image.new("L", (1, band_h))
     for y in range(band_h):
         if y < fade:
-            a = int(255 * (y / max(1, fade)))                      # fade in
+            a = int(255 * (y / max(1, fade)))
         elif y < fade + height:
-            a = 255                                                # solid
+            a = 255
         else:
-            a = int(255 * (1 - (y - fade - height) / max(1, fade)))  # fade out
+            a = int(255 * (1 - (y - fade - height) / max(1, fade)))
         alpha_col.putpixel((0, y), a)
     alpha = alpha_col.resize((img.width, band_h))
 
-    # Full-width black band with gradient alpha
     black_band = Image.new("RGBA", (img.width, band_h), (0, 0, 0, 255))
     black_band.putalpha(alpha)
 
-    # Target placement
+    # Overall band placement (includes fades)
     band_top = center_y - (height // 2 + fade)
     band_bottom = band_top + band_h
 
-    # Clamp to image bounds (crop the band if it overflows)
+    # Clamp band to image; crop if needed
     top = max(0, band_top)
     bottom = min(img.height, band_bottom)
     if bottom <= top:
-        return img  # nothing to draw
+        # Nothing to draw; still return the intended solid bounds for layout
+        solid_top = center_y - height // 2
+        solid_bottom = solid_top + height
+        return img, max(0, solid_top), min(img.height, solid_bottom)
 
     crop_top = top - band_top
     crop_bottom = crop_top + (bottom - top)
     band_cropped = black_band.crop((0, crop_top, img.width, crop_bottom))
 
-    # Composite onto a same-size overlay, then onto img
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    overlay.paste(band_cropped, (0, top), band_cropped)  # ✅ 2-item box is fine when pasting an image
+    overlay.paste(band_cropped, (0, top), band_cropped)
     img = Image.alpha_composite(img, overlay)
-    return img
 
-def add_text_overlay(image_path, title, platform_raw, source_release_date):
+    # Solid (readable) region is the middle 'height' area (independent of fades)
+    solid_top = center_y - height // 2
+    solid_bottom = solid_top + height
+    # Clamp solid bounds to image just in case
+    solid_top = max(0, solid_top)
+    solid_bottom = min(img.height, solid_bottom)
+    return img, solid_top, solid_bottom
+
+
+def add_text_overlay(image_path, title, platform_raw, percent_off, source_release_date):
     """
-    Draws three centered lines on the collage.
-    Center of the WHOLE block is at y = TEXT_CENTER_Y.
+    Draws up to three centered lines; each line auto-fits its own max width.
+    The stack is visually centered on the SOLID band, but can extend up to
+    BAND_LEEWAY pixels into the fades above/below (bounded spill).
     """
+    # 1) Paint gradient and get solid band bounds
     img = Image.open(image_path).convert("RGBA")
-    img = add_gradient_background(img, center_y=TEXT_CENTER_Y, height=200, fade=200)
+    img, solid_top, solid_bottom = add_gradient_background(
+        img, center_y=TEXT_CENTER_Y, height=BAND_SOLID_HEIGHT, fade=BAND_FADE
+    )
     draw = ImageDraw.Draw(img)
 
-    # Compute <n>
+    # 2) Build the three lines
     rd = parse_release_date_any(source_release_date)
     n = years_elapsed_until_today_ph(rd)
-    # Lines
+
     if n == 0:
         line1 = "Today..."
     else:
         year_word = "year" if n == 1 else "years"
         line1 = f"{n} {year_word} ago today..."
+
     line2 = title or ""
+
     platform = _map_platform(platform_raw)
-    line3 = f"released on the {platform}" if platform else "released"
+    po = _format_percent_off(percent_off)
+    if platform and po:
+        line3 = f"released on {platform}, now {po} OFF!"
+    elif platform:
+        line3 = f"released on {platform}"
+    elif po:
+        line3 = f"released, now {po} OFF!"
+    else:
+        line3 = "released"
 
-    # Fonts
-    font_line1 = _load_font(BASE_FONT_SIZE_PX)
-    font_line3 = _load_font(BASE_FONT_SIZE_PX)
-    # Title font may shrink to fit width ≤ TITLE_MAX_WIDTH_PX
-    font_line2, title_size = _fit_title_font(draw, line2, BASE_FONT_SIZE_PX, TITLE_MAX_WIDTH_PX, STROKE_PX)
+    # 3) Width-fit each line independently
+    font_line1, size1 = _fit_font_to_width(draw, line1, BASE_FONT_SIZE_PX, LINE1_MAX_WIDTH_PX, STROKE_PX)
+    font_line2, size2 = _fit_font_to_width(draw, line2, BASE_FONT_SIZE_PX, LINE2_MAX_WIDTH_PX, STROKE_PX)
+    font_line3, size3 = _fit_font_to_width(draw, line3, BASE_FONT_SIZE_PX, LINE3_MAX_WIDTH_PX, STROKE_PX)
 
-    # Measure all lines (including stroke)
-    w1, h1 = _text_size(draw, line1, font_line1, STROKE_PX)
-    w2, h2 = _text_size(draw, line2, font_line2, STROKE_PX)
-    w3, h3 = _text_size(draw, line3, font_line3, STROKE_PX)
+    def wh(txt, fnt):
+        if not txt:
+            return (0, 0)
+        return _text_size(draw, txt, fnt, STROKE_PX)
 
-    total_h = h1 + LINE_SPACING_PX + h2 + LINE_SPACING_PX + h3
-    # Center of the block should be at TEXT_CENTER_Y
-    top_y = int(round(TEXT_CENTER_Y - total_h / 2))
+    w1, h1 = wh(line1, font_line1)
+    w2, h2 = wh(line2, font_line2)
+    w3, h3 = wh(line3, font_line3)
 
-    # Horizontal center
+    lines = []
+    if line1: lines.append(("line1", line1, font_line1, size1, h1, LINE1_MAX_WIDTH_PX))
+    if line2: lines.append(("line2", line2, font_line2, size2, h2, LINE2_MAX_WIDTH_PX))
+    if line3: lines.append(("line3", line3, font_line3, size3, h3, LINE3_MAX_WIDTH_PX))
+
+    gaps = max(len(lines) - 1, 0)
+    total_h = sum(hh for (_, _, _, _, hh, _) in lines) + gaps * LINE_SPACING_PX
+
+    # 4) Allow bounded spill into fades (solid height + leeway)
+    #    (We still CENTER on the solid band; leeway only affects scaling threshold.)
+    available_h = max(
+        0,
+        (solid_bottom - solid_top) + 2 * BAND_LEEWAY - 2 * BAND_INNER_PADDING
+    )
+
+    if total_h > available_h and available_h > 0:
+        # Scale all font sizes proportionally first
+        scale = available_h / total_h
+        new_sizes = [max(MIN_FONT_SIZE_PX, int(sz * scale)) for (_, _, _, sz, _, _) in lines]
+
+        # Refit each line by width using the new bases
+        new_lines = []
+        for (entry, new_base) in zip(lines, new_sizes):
+            key, txt, _, _, _, max_w = entry
+            fnt, final_sz = _fit_font_to_width(draw, txt, new_base, max_w, STROKE_PX)
+            _, hh = wh(txt, fnt)
+            new_lines.append((key, txt, fnt, final_sz, hh, max_w))
+        lines = new_lines
+
+        # Recompute total height
+        gaps = max(len(lines) - 1, 0)
+        total_h = sum(hh for (_, _, _, _, hh, _) in lines) + gaps * LINE_SPACING_PX
+
+        # Final squeeze if still one or two pixels over
+        while total_h > available_h and any(sz > MIN_FONT_SIZE_PX for (_, _, _, sz, _, _) in lines):
+            squeezed = []
+            for (key, txt, fnt, sz, hh, max_w) in lines:
+                next_base = max(MIN_FONT_SIZE_PX, sz - 1)
+                fnt2, sz2 = _fit_font_to_width(draw, txt, next_base, max_w, STROKE_PX)
+                _, hh2 = wh(txt, fnt2)
+                squeezed.append((key, txt, fnt2, sz2, hh2, max_w))
+            lines = squeezed
+            gaps = max(len(lines) - 1, 0)
+            total_h = sum(hh for (_, _, _, _, hh, _) in lines) + gaps * LINE_SPACING_PX
+
+    # 5) Placement — center on the SOLID band, then clamp to +- leeway
     center_x = img.width // 2
+    band_center = (solid_top + solid_bottom) // 2
+    top_y = int(round(band_center - total_h / 2))
 
-    # Colors
+    # Bounded spill: keep the block within [solid_top - leeway, solid_bottom + leeway]
+    upper = solid_top - BAND_LEEWAY + BAND_INNER_PADDING
+    lower = solid_bottom + BAND_LEEWAY - BAND_INNER_PADDING
+    if top_y < upper:
+        top_y = upper
+    if top_y + total_h > lower:
+        top_y = lower - total_h
+
+    # 6) Draw
     title_color = (255, 185, 18)  # #ffb912
     other_color = (255, 255, 255)
     stroke_color = (0, 0, 0)
 
-    # Draw lines centered
-    # Line 1
-    draw.text(
-        (center_x, top_y),
-        line1,
-        font=font_line1,
-        fill=other_color,
-        stroke_width=STROKE_PX,
-        stroke_fill=stroke_color,
-        anchor="ma"  # middle baseline horizontally centered
-    )
-    # Line 2 (title)
-    y2 = top_y + h1 + LINE_SPACING_PX
-    draw.text(
-        (center_x, y2),
-        line2,
-        font=font_line2,
-        fill=title_color,
-        stroke_width=STROKE_PX,
-        stroke_fill=stroke_color,
-        anchor="ma"
-    )
-    # Line 3
-    y3 = y2 + h2 + LINE_SPACING_PX
-    draw.text(
-        (center_x, y3),
-        line3,
-        font=font_line3,
-        fill=other_color,
-        stroke_width=STROKE_PX,
-        stroke_fill=stroke_color,
-        anchor="ma"
-    )
+    y = top_y
+    for key, txt, fnt, sz, hh, _ in lines:
+        fill = title_color if key == "line2" else other_color
+        draw.text(
+            (center_x, y),
+            txt,
+            font=fnt,
+            fill=fill,
+            stroke_width=STROKE_PX,
+            stroke_fill=stroke_color,
+            anchor="ma",
+        )
+        y += hh + LINE_SPACING_PX
 
+    # 7) Save
     img = img.convert("RGB")
     img.save(image_path, "JPEG", quality=90, optimize=True, progressive=True)
     return image_path
+
+
 
 # ========= MAIN =========
 def main():
@@ -528,6 +623,7 @@ def main():
             out_jpg,
             title=payload["title"],
             platform_raw=payload["platform"],
+            percent_off=payload["percent_off"],
             source_release_date=payload["source_release_date"]
         )
         print("Applied text overlay.")
