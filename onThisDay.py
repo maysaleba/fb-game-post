@@ -30,6 +30,7 @@ BAND_INNER_PADDING = 8    # small top/bottom padding inside the solid area
 
 # Allow text to extend this many pixels outside the solid band
 BAND_LEEWAY = 60   # try 60–80px; tweak until it looks good
+BAND_OPACITY       = 0.9 # <--- NEW: 0.0 (transparent) → 1.0 (fully opaque)
 
 
 # Text overlay
@@ -331,11 +332,24 @@ def _format_percent_off(raw):
         digits = "".join(ch for ch in s if ch.isdigit())
         return f"{digits}%" if digits else ""
 
-def add_gradient_background(img, center_y, height=BAND_SOLID_HEIGHT, fade=BAND_FADE):
+def add_gradient_background(
+    img,
+    center_y,
+    height=BAND_SOLID_HEIGHT,
+    fade=BAND_FADE,
+    opacity=BAND_OPACITY,   # <-- accept opacity
+):
     """
     Paint a horizontal black band centered at center_y with transparent fades above/below.
     Returns (img_with_band, solid_top, solid_bottom) so caller can keep text inside.
     """
+    # Clamp opacity defensively
+    try:
+        opacity = float(opacity)
+    except Exception:
+        opacity = 1.0
+    opacity = max(0.0, min(1.0, opacity))
+
     img = img.convert("RGBA")
     band_h = height + 2*fade
 
@@ -348,6 +362,7 @@ def add_gradient_background(img, center_y, height=BAND_SOLID_HEIGHT, fade=BAND_F
             a = 255
         else:
             a = int(255 * (1 - (y - fade - height) / max(1, fade)))
+        a = int(a * opacity)  # apply opacity scaling
         alpha_col.putpixel((0, y), a)
     alpha = alpha_col.resize((img.width, band_h))
 
@@ -362,7 +377,6 @@ def add_gradient_background(img, center_y, height=BAND_SOLID_HEIGHT, fade=BAND_F
     top = max(0, band_top)
     bottom = min(img.height, band_bottom)
     if bottom <= top:
-        # Nothing to draw; still return the intended solid bounds for layout
         solid_top = center_y - height // 2
         solid_bottom = solid_top + height
         return img, max(0, solid_top), min(img.height, solid_bottom)
@@ -375,13 +389,11 @@ def add_gradient_background(img, center_y, height=BAND_SOLID_HEIGHT, fade=BAND_F
     overlay.paste(band_cropped, (0, top), band_cropped)
     img = Image.alpha_composite(img, overlay)
 
-    # Solid (readable) region is the middle 'height' area (independent of fades)
-    solid_top = center_y - height // 2
-    solid_bottom = solid_top + height
-    # Clamp solid bounds to image just in case
-    solid_top = max(0, solid_top)
-    solid_bottom = min(img.height, solid_bottom)
+    # Solid readable region
+    solid_top = max(0, center_y - height // 2)
+    solid_bottom = min(img.height, solid_top + height)
     return img, solid_top, solid_bottom
+
 
 
 def add_text_overlay(image_path, title, platform_raw, percent_off, source_release_date):
