@@ -27,10 +27,10 @@ PAGE_ID = cfg.get("fb_page_id", "110345971129305")
 
 
 # ==== TEST TOKEN ===
-#ACCESS_TOKEN = os.environ.get("FB_PAGE_ACCESS_TOKEN_TEST") or cfg.get("fb_access_token")
+ACCESS_TOKEN = os.environ.get("FB_PAGE_ACCESS_TOKEN_TEST") or cfg.get("fb_access_token")
 
 # ==== LIVE TOKEN ===
-ACCESS_TOKEN = os.environ.get("FB_PAGE_ACCESS_TOKEN_LIVE") or cfg.get("fb_access_token")
+#ACCESS_TOKEN = os.environ.get("FB_PAGE_ACCESS_TOKEN_LIVE") or cfg.get("fb_access_token")
 
 IMAGE_FOLDER = cfg.get("fb_image_folder")
 POST_TITLE = cfg.get("fb_post_title", "Trending Games On Sale")
