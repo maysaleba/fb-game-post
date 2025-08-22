@@ -89,3 +89,33 @@ jobs:
             trackers/already_exported_switch.json
             force/force_include_switch.json
           key: ${{ env.CACHE_PREFIX }}-${{ github.run_id }}
+
+
+      # --- (optional) Show tracker contents in logs ---
+      - name: Show tracker JSON (switch)
+        if: always()
+        run: |
+          echo "== trackers/already_exported_switch.json =="
+          if [ -f trackers/already_exported_switch.json ]; then
+            cat trackers/already_exported_switch.json
+          else
+            echo "Tracker file not found."
+          fi
+          echo "== force/force_include_switch.json =="
+          if [ -f force/force_include_switch.json ]; then
+            cat force/force_include_switch.json
+          else
+            echo "Force file not found."
+          fi
+
+      # --- Upload tracker & force list as artifacts for later download ---
+      - name: Upload tracker artifacts (switch)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: switch-tracker-${{ github.run_number }}
+          path: |
+            trackers/already_exported_switch.json
+            force/force_include_switch.json
+          if-no-files-found: warn
+          retention-days: 7
