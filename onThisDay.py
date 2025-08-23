@@ -66,8 +66,15 @@ def slug_variants(slug: str) -> list:
     if "-ps5" in slug:    variants.append(slug.replace("-ps5", ""))
     if slug.endswith("-nintendo-switch"):
         variants.append(slug.replace("-nintendo-switch", ""))
-    manual = {"doom": "doom--1", "survival-kids": "survival-kids--1"}
-    if slug in manual: variants.insert(0, manual[slug])
+
+    manual = {"doom": "doom--1", "survival-kids": "survival-kids--1", "blasphemous-2": "blasphemous-ii"}
+
+    # 🔑 Check all generated variants against manual overrides
+    for v in list(variants):  
+        if v in manual:
+            variants.insert(0, manual[v])  # add override at the front
+
+    # Deduplicate while preserving order
     seen, unique = set(), []
     for s in variants:
         if s not in seen:
