@@ -418,26 +418,37 @@ def add_text_overlay(image_path, title, platform_raw, percent_off, source_releas
 
     # 2) Build the three lines
     rd = parse_release_date_any(source_release_date)
+    today = get_today_ph_date()
     n = years_elapsed_until_today_ph(rd)
 
-    if n == 0:
+    if rd and rd == today:
+        # 🎉 Release date is exactly today (including year)
         line1 = "Today..."
+        releasing_now = True
+    elif n == 0:
+        line1 = "Today..."
+        releasing_now = False
     else:
         year_word = "year" if n == 1 else "years"
         line1 = f"{n} {year_word} ago today..."
+        releasing_now = False
 
     line2 = title or ""
 
     platform = _map_platform(platform_raw)
     po = _format_percent_off(percent_off)
+
+    # Choose verb depending on whether it's a same-year release
+    verb = "is releasing" if releasing_now else "released"
+
     if platform and po:
-        line3 = f"released on {platform}, now {po} OFF!"
+        line3 = f"{verb} on {platform}, now {po} OFF!"
     elif platform:
-        line3 = f"released on {platform}"
+        line3 = f"{verb} on {platform}"
     elif po:
-        line3 = f"released, now {po} OFF!"
+        line3 = f"{verb}, now {po} OFF!"
     else:
-        line3 = "released"
+        line3 = verb
 
     # 3) Width-fit each line independently
     font_line1, size1 = _fit_font_to_width(draw, line1, BASE_FONT_SIZE_PX, LINE1_MAX_WIDTH_PX, STROKE_PX)
