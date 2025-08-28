@@ -30,7 +30,7 @@ BAND_INNER_PADDING = 8    # small top/bottom padding inside the solid area
 
 # Allow text to extend this many pixels outside the solid band
 BAND_LEEWAY = 60   # try 60–80px; tweak until it looks good
-BAND_OPACITY       = 0.9 # <--- NEW: 0.0 (transparent) → 1.0 (fully opaque)
+BAND_OPACITY       = 0.8 # <--- NEW: 0.0 (transparent) → 1.0 (fully opaque)
 
 
 # Text overlay
