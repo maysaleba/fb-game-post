@@ -59,6 +59,19 @@ SCREENSHOTS_URL  = "https://api.igdb.com/v4/screenshots"
 MIN_SCREENSHOTS = 5
 
 # ========= HELPERS =========
+def add_logo_overlay(image_path, logo_path="msb_logo.png", pos=(10,10)):
+    """Overlay logo at given pos without resizing."""
+    try:
+        img = Image.open(image_path).convert("RGBA")
+        logo = Image.open(logo_path).convert("RGBA")
+        img.paste(logo, pos, logo)  # use logo as mask to keep transparency
+        img = img.convert("RGB")
+        img.save(image_path, "JPEG", quality=90, optimize=True, progressive=True)
+        return image_path
+    except Exception as e:
+        print(f"⚠️ Failed to overlay logo: {e}")
+        return image_path
+        
 def slug_variants(slug: str) -> list:
     variants = [slug]
     if "-switch" in slug: variants.append(slug.replace("-switch", ""))
@@ -659,6 +672,13 @@ def main():
         print("Applied text overlay.")
     except Exception as e:
         print(f"Failed to add text overlay: {e}")
+
+    # ----- Add logo overlay -----
+    try:
+        add_logo_overlay(out_jpg, "msb_logo.png", (10,10))
+        print("Applied logo overlay.")
+    except Exception as e:
+        print(f"Failed to add logo overlay: {e}")
 
 if __name__ == "__main__":
     main()
