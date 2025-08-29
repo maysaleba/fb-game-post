@@ -25,7 +25,7 @@ GRID_BG      = (16, 16, 16)
 # Gradient band geometry (solid center + fades)
 BAND_SOLID_HEIGHT = 200   # readable solid band height
 BAND_FADE          = 200  # fade above and below the solid band
-BAND_INNER_PADDING = 8    # small top/bottom padding inside the solid area
+BAND_INNER_PADDING = 9    # small top/bottom padding inside the solid area
 
 
 # Allow text to extend this many pixels outside the solid band
