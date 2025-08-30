@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     # Runs ~9:30 AM NZT Mondays, Wednesdays, and Saturdays (21:30 UTC previous day)
-    - cron: "30 21 * * 0,2,5"
+    - cron: "30 8 * * 0,2,5"
 
 concurrency:
   group: switch-post
