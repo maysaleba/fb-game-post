@@ -397,47 +397,43 @@ def add_gradient_background(
 
 def add_text_overlay(image_path, title, platform_raw, percent_off, source_release_date):
     """
-    Draw up to 3 centered lines; style identical to collage_bot_slug.py:
-      - line1 gold, line2 white, line3 white
-      - per-line width fitting to MAX_TEXT_WIDTH_PX
-      - positioned around TEXT_CENTER_Y
+    3-line format:
+      If exact release date == today (including year):
+        1) <title>                  (gold)
+        2) "is releasing today on <platform>!"
+        3) "now <percent_off> OFF!" (if discount present)
+
+      If month/day matches but year differs:
+        1) <title>                  (gold)
+        2) "turns n years old today on <platform>!"
+        3) "now <percent_off> OFF!" (if discount present)
     """
     base = Image.open(image_path).convert("RGBA")
     base, _, _ = add_gradient_background(base, center_y=TEXT_CENTER_Y)
-
     draw = ImageDraw.Draw(base)
 
-    # Build lines (preserve semantics)
+    # --- data prep ---
     rd = parse_release_date_any(source_release_date)
     today = get_today_ph_date()
-    n = years_elapsed_until_today_ph(rd)
-
-    if rd and rd == today:
-        line1 = "Today..."
-        releasing_now = True
-    elif n == 0:
-        line1 = "Today..."
-        releasing_now = False
-    else:
-        year_word = "year" if n == 1 else "years"
-        line1 = f"{n} {year_word} ago today..."
-        releasing_now = False
-
-    line2 = title or ""
+    releasing_today = (rd is not None and rd == today)
+    years = years_elapsed_until_today_ph(rd)
     platform = _map_platform(platform_raw)
     po = _format_percent_off(percent_off)
-    verb = "is releasing" if releasing_now else "released"
 
-    if platform and po:
-        line3 = f"{verb} on {platform}, now {po} OFF!"
-    elif platform:
-        line3 = f"{verb} on {platform}"
-    elif po:
-        line3 = f"{verb}, now {po} OFF!"
+    # --- lines per new spec ---
+    line1 = title or ""  # highlighted (gold)
+
+    if releasing_today:
+        core = f"is releasing today"
     else:
-        line3 = verb
+        n = 0 if years is None else years
+        year_word = "year" if n == 1 else "years"
+        core = f"turns {n} {year_word} old today"
 
-    # Fit independently
+    line2 = f"{core} on {platform}!" if platform else f"{core}!"
+    line3 = f"now {po} OFF!" if po else ""
+
+    # --- fit fonts to width ---
     font1, _ = _fit_font_to_width(draw, line1, BASE_FONT_SIZE_PX, LINE1_MAX_WIDTH_PX, STROKE_PX)
     font2, _ = _fit_font_to_width(draw, line2, BASE_FONT_SIZE_PX, LINE2_MAX_WIDTH_PX, STROKE_PX)
     font3, _ = _fit_font_to_width(draw, line3, BASE_FONT_SIZE_PX, LINE3_MAX_WIDTH_PX, STROKE_PX)
@@ -445,18 +441,21 @@ def add_text_overlay(image_path, title, platform_raw, percent_off, source_releas
     def wh(txt, fnt):
         if not txt:
             return (0, 0)
-        return _text_size(draw, txt, fnt, STROKE_PX)
+        bbox = draw.textbbox((0, 0), txt, font=fnt, stroke_width=STROKE_PX, anchor="la")
+        return (bbox[2] - bbox[0], bbox[3] - bbox[1])
 
-    w1, h1 = wh(line1, font1) if line1 else (0,0)
-    w2, h2 = wh(line2, font2) if line2 else (0,0)
-    w3, h3 = wh(line3, font3) if line3 else (0,0)
+    w1, h1 = wh(line1, font1)
+    w2, h2 = wh(line2, font2)
+    w3, h3 = wh(line3, font3)
 
-    non_empty = [l for l in [line1, line2, line3] if l]
-    total_h = sum(h for h in [h1, h2, h3] if h) + LINE_SPACING_PX * (len(non_empty) - 1)
+    lines_present = [h for h in (h1, h2, h3) if h > 0]
+    total_h = sum(lines_present) + LINE_SPACING_PX * (len(lines_present) - 1 if lines_present else 0)
 
+    # --- center vertically ---
     cx = base.width // 2
     top_y = int(round(TEXT_CENTER_Y - total_h / 2))
 
+    # --- draw (title gold; others white) ---
     y = top_y
     if line1:
         draw.text((cx, y), line1, font=font1, fill=TITLE_COLOR, anchor="ma")
@@ -469,6 +468,7 @@ def add_text_overlay(image_path, title, platform_raw, percent_off, source_releas
 
     base.convert("RGB").save(image_path, "JPEG", quality=90, optimize=True, progressive=True)
     return image_path
+
 
 # ========= MAIN =========
 def main():
