@@ -16,8 +16,10 @@
     "NorwayPrice": "nokExchange",
     "SouthafricaPrice": "zarExchange",
     "SingaporePrice": "sgdExchange",
-    "HongkongPrice": "hkdExchange",
     "TurkeyPrice": "tryExchange",
+    "HongKongPrice": "hkdExchange",
+    "KoreaPrice": "krwExchange",
+    "JapanPrice": "jpyExchange",
     "SalePrice": "usdExchange"
   },
   "argentina_logic": true,
