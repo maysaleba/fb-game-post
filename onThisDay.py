@@ -431,7 +431,7 @@ def add_text_overlay(image_path, title, platform_raw, percent_off, source_releas
         core = f"turns {n} {year_word} old today"
 
     line2 = f"{core} on {platform}" if platform else f"{core}"
-    line3 = f"it is now on sale for {po} OFF!" if po else ""
+    line3 = f"and is now on sale for {po} OFF!" if po else ""
 
     # --- fit fonts to width ---
     font1, _ = _fit_font_to_width(draw, line1, BASE_FONT_SIZE_PX, LINE1_MAX_WIDTH_PX, STROKE_PX)
