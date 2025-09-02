@@ -35,7 +35,8 @@ slug_overrides = {
     "terra-nil": "terra-nil--1", 
     "disney-epic-mickey-rebrushed": "epic-mickey-rebrushed",
     "bladechimera": "blade-chimera",
-    "climb": "climb--5"
+    "climb": "climb--5",
+    "unicorn-overlord": "unicorn-overlord--1"
 }
 
 def chunked(iterable: List, n: int) -> Iterable[List]:
