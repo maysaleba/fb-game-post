@@ -22,27 +22,30 @@ GRID_MARGIN  = 0
 GRID_GUTTER  = 0
 GRID_BG      = (16, 16, 16)
 
-# ========= TEXT OVERLAY CONFIG (match collage_bot_slug.py) =========
-FONT_PATH         = "Axiforma-Black.otf"
-BASE_FONT_SIZE_PX = 90
-TEXT_CENTER_Y     = 1320
-LINE_SPACING_PX   = 10
-TITLE_COLOR       = (255, 186, 32)  # #ffba20
-OTHER_COLOR       = (255, 255, 255)
-MAX_TEXT_WIDTH_PX = 1126
-STROKE_PX         = 0
-STROKE_COLOR      = (0, 0, 0)
+# Gradient band geometry (solid center + fades)
+BAND_SOLID_HEIGHT = 200   # readable solid band height
+BAND_FADE          = 200  # fade above and below the solid band
+BAND_INNER_PADDING = 9    # small top/bottom padding inside the solid area
 
-LINE1_MAX_WIDTH_PX = MAX_TEXT_WIDTH_PX
-LINE2_MAX_WIDTH_PX = MAX_TEXT_WIDTH_PX
-LINE3_MAX_WIDTH_PX = MAX_TEXT_WIDTH_PX
+
+# Allow text to extend this many pixels outside the solid band
+BAND_LEEWAY = 60   # try 60–80px; tweak until it looks good
+BAND_OPACITY       = 0.9 # <--- NEW: 0.0 (transparent) → 1.0 (fully opaque)
+
+
+# Text overlay
+FONT_PATH          = "Axiforma-Black.otf"  # must exist in repo root
+BASE_FONT_SIZE_PX  = 88
+TITLE_MAX_WIDTH_PX = 1100
+STROKE_PX          = 0
+TEXT_CENTER_Y      = 774  # y-axis center for the ENTIRE block of three lines
+LINE_SPACING_PX    = 10   # spacing between lines (visual gap)
+
+# Per-line max widths + minimum font size (for per-line auto-fit)
+LINE1_MAX_WIDTH_PX = 1100
+LINE2_MAX_WIDTH_PX = TITLE_MAX_WIDTH_PX
+LINE3_MAX_WIDTH_PX = 1100
 MIN_FONT_SIZE_PX   = 18
-
-# ========= GRADIENT BAND (match collage_bot_slug.py) =========
-BAND_HEIGHT  = 1000
-MAX_OPACITY  = 0.9
-SOLID_HEIGHT = 200
-EASE         = "linear"  # "linear", "ease-in", "ease-out"
 
 # IGDB creds
 CLIENT_ID     = os.getenv("IGDB_CLIENT_ID", "jxnpf283ohcc4z1ou74w2vzkdew9vi")
@@ -52,21 +55,33 @@ TOKEN_URL        = "https://id.twitch.tv/oauth2/token"
 GAMES_URL        = "https://api.igdb.com/v4/games"
 SCREENSHOTS_URL  = "https://api.igdb.com/v4/screenshots"
 
+# Minimum screenshots required to accept a game
 MIN_SCREENSHOTS = 5
 
 # ========= HELPERS =========
+def choose_collage_urls(urls: list[str]) -> list[str]:
+    """
+    Collage rule:
+      - >8 screenshots -> use first 8 (2x4)
+      - else           -> keep existing behavior (cap at 5 for your special layout)
+    """
+    urls = [u for u in urls if u]
+    return urls[:8] if len(urls) > 8 else urls[:5]
+
+
 def add_logo_overlay(image_path, logo_path="msb_logo.png", pos=(10,10)):
+    """Overlay logo at given pos without resizing."""
     try:
         img = Image.open(image_path).convert("RGBA")
         logo = Image.open(logo_path).convert("RGBA")
-        img.paste(logo, pos, logo)
+        img.paste(logo, pos, logo)  # use logo as mask to keep transparency
         img = img.convert("RGB")
         img.save(image_path, "JPEG", quality=90, optimize=True, progressive=True)
         return image_path
     except Exception as e:
         print(f"⚠️ Failed to overlay logo: {e}")
         return image_path
-
+        
 def slug_variants(slug: str) -> list:
     variants = [slug]
     if "-switch" in slug: variants.append(slug.replace("-switch", ""))
@@ -76,10 +91,13 @@ def slug_variants(slug: str) -> list:
         variants.append(slug.replace("-nintendo-switch", ""))
 
     manual = {"doom": "doom--1", "survival-kids": "survival-kids--1", "blasphemous-2": "blasphemous-ii"}
-    for v in list(variants):
-        if v in manual:
-            variants.insert(0, manual[v])
 
+    # 🔑 Check all generated variants against manual overrides
+    for v in list(variants):  
+        if v in manual:
+            variants.insert(0, manual[v])  # add override at the front
+
+    # Deduplicate while preserving order
     seen, unique = set(), []
     for s in variants:
         if s not in seen:
@@ -94,6 +112,7 @@ def safe_float(x, default=0.0):
     except: return default
 
 def get_today_ph_date():
+    # return datetime(2025, 8, 20).date()  # <- handy for testing
     try: return datetime.now(ZoneInfo("Asia/Manila")).date()
     except Exception: return datetime.now(timezone(timedelta(hours=8))).date()
 
@@ -116,6 +135,10 @@ def parse_release_date_any(s: str):
     return None
 
 def years_elapsed_until_today_ph(release_date):
+    """
+    Whole years elapsed (like human anniversary logic).
+    Subtract one if today's MM-DD hasn't reached the release MM-DD yet.
+    """
     if release_date is None:
         return None
     today = get_today_ph_date()
@@ -172,9 +195,11 @@ def query_game_by_slug(token, slug, debug=True):
     exact = [g for g in res if g.get("slug") == slug]
     if exact:
         return exact[0]
+
     variant_match = [g for g in res if g.get("slug") in variants]
     if variant_match:
         return variant_match[0]
+
     return None
 
 def query_screenshots(token, screenshot_ids):
@@ -193,7 +218,7 @@ def query_screenshots(token, screenshot_ids):
             urls.append(f"https://images.igdb.com/igdb/image/upload/t_1080p/{image_id}.jpg")
     return urls
 
-# ======== IMAGE HELPERS ========
+# ======== IMAGE / COLLAGE HELPERS ========
 def _download_image(url, timeout=30):
     r = requests.get(url, timeout=timeout)
     r.raise_for_status()
@@ -214,89 +239,76 @@ def _center_crop_cover(img: Image.Image, target_w: int, target_h: int) -> Image.
     top  = (new_h - target_h) // 2
     return img_resized.crop((left, top, left + target_w, top + target_h))
 
-# ======== COLLAGE LOGIC (no randomization) ========
-def make_5tile_collage(urls, out_path):
-    """
-    2x2 on top + 1 wide on bottom (total canvas height = 4 * CELL_H).
-    Uses first 5 URLs in order (no randomization).
-    """
+def _fit_keep_aspect(img: Image.Image, target_w: int) -> Image.Image:
+    w, h = img.size
+    new_w = target_w
+    new_h = int(round(h * (new_w / w)))
+    return img.resize((new_w, new_h), Image.LANCZOS)
+
+def make_collage_1242(urls, out_path,
+                      canvas_w=CANVAS_WIDTH,
+                      cols=GRID_COLS,
+                      cell_w=CELL_W,
+                      cell_h=CELL_H,
+                      margin=GRID_MARGIN,
+                      gutter=GRID_GUTTER,
+                      bg=GRID_BG):
     urls = [u for u in urls if u]
-    if len(urls) < 5:
-        raise ValueError("Need at least 5 images for 5-tile collage")
+    if not urls:
+        raise ValueError("No image URLs provided")
 
-    urls = urls[:5]
+    if len(urls) == 1:
+        img = _download_image(urls[0])
+        fitted = _fit_keep_aspect(img, canvas_w)
+        canvas_h = fitted.height
+        canvas = Image.new("RGB", (canvas_w, canvas_h), bg)
+        canvas.paste(fitted, (0, 0))
+        canvas.save(out_path, "JPEG", quality=90, optimize=True, progressive=True)
+        return out_path
 
-    canvas = Image.new("RGB", (CANVAS_WIDTH, 4 * CELL_H), GRID_BG)
+    n = len(urls)
+    last_wide = (n % cols == 1)
+    rows_base = n // cols
 
-    # top 2x2
-    idx = 0
-    y = GRID_MARGIN
-    for r in range(2):
-        for c in range(GRID_COLS):
-            try:
-                img = _download_image(urls[idx])
-            except Exception:
-                img = Image.new("RGB", (CELL_W, CELL_H), GRID_BG)
-            tile = _center_crop_cover(img, CELL_W, CELL_H)
-            x = GRID_MARGIN + c * (CELL_W + GRID_GUTTER)
-            canvas.paste(tile, (x, y))
-            idx += 1
-        y += CELL_H + GRID_GUTTER
-
-    # bottom wide (2 * CELL_H tall)
-    try:
-        last_img = _download_image(urls[4])
-    except Exception:
-        last_img = Image.new("RGB", (CANVAS_WIDTH, CELL_H * 2), GRID_BG)
-    wide_tile = _center_crop_cover(last_img, CANVAS_WIDTH, CELL_H * 2)
-    canvas.paste(wide_tile, (GRID_MARGIN, y))
-
-    canvas.save(out_path, "JPEG", quality=90, optimize=True, progressive=True)
-    return out_path
-
-def make_2x4_collage(urls, out_path):
-    """
-    2 columns × 4 rows grid (8 tiles total), canvas height = 4 * CELL_H.
-    Uses URLs in order; if fewer than 8, cycles from the beginning.
-    """
-    urls = [u for u in urls if u]
-    if len(urls) < 6:
-        raise ValueError("Need at least 6 images for 2x4 grid")
-
-    if len(urls) >= 8:
-        urls = urls[:8]
+    if last_wide:
+        base_height  = rows_base * cell_h
+        base_gutters = max(rows_base - 1, 0) * gutter
+        join_gutter  = gutter if rows_base > 0 else 0
+        total_h = 2 * margin + base_height + base_gutters + join_gutter + (2 * cell_h)
     else:
-        # cycle through the list until we have 8
-        needed = 8
-        cycled = []
-        idx = 0
-        while len(cycled) < needed:
-            cycled.append(urls[idx % len(urls)])
-            idx += 1
-        urls = cycled
+        rows = rows_base
+        total_h = 2 * margin + rows * cell_h + max(rows - 1, 0) * gutter
 
-    canvas = Image.new("RGB", (CANVAS_WIDTH, 4 * CELL_H), GRID_BG)
+    canvas = Image.new("RGB", (canvas_w, total_h), bg)
+    x0 = margin
+    y  = margin
+    col = 0
 
-    idx = 0
-    y = GRID_MARGIN
-    for r in range(4):
-        x = GRID_MARGIN
-        for c in range(GRID_COLS):
-            try:
-                img = _download_image(urls[idx])
-            except Exception:
-                img = Image.new("RGB", (CELL_W, CELL_H), GRID_BG)
-            tile = _center_crop_cover(img, CELL_W, CELL_H)
+    for idx, url in enumerate(urls):
+        try:
+            img = _download_image(url)
+        except Exception:
+            img = Image.new("RGB", (cell_w, cell_h), bg)
+        is_last = (idx == n - 1)
+        if last_wide and is_last:
+            target_w = (canvas_w - 2 * margin)
+            target_h = cell_h * 2
+            tile = _center_crop_cover(img, target_w, target_h)
+            canvas.paste(tile, (margin, y))
+            break
+        else:
+            tile = _center_crop_cover(img, cell_w, cell_h)
+            x = x0 + col * (cell_w + gutter)
             canvas.paste(tile, (x, y))
-            x += CELL_W + GRID_GUTTER
-            idx += 1
-        y += CELL_H + GRID_GUTTER
+            col += 1
+            if col >= cols:
+                col = 0
+                y += cell_h + gutter
 
     canvas.save(out_path, "JPEG", quality=90, optimize=True, progressive=True)
     return out_path
 
-
-# ======== TEXT OVERLAY / GRADIENT (from collage_bot_slug.py) ========
+# ======== TEXT OVERLAY / TYPOGRAPHY ========
 def _load_font(size_px):
     try:
         return ImageFont.truetype(FONT_PATH, size_px)
@@ -304,12 +316,17 @@ def _load_font(size_px):
         return ImageFont.load_default()
 
 def _text_size(draw, text, font, stroke):
+    # textbbox returns (left, top, right, bottom); include stroke in measurement
     bbox = draw.textbbox((0,0), text, font=font, stroke_width=stroke, anchor="la")
     w = bbox[2] - bbox[0]
     h = bbox[3] - bbox[1]
     return w, h
 
 def _fit_font_to_width(draw, text, base_size, max_width, stroke, min_px=MIN_FONT_SIZE_PX, step=2):
+    """
+    Returns (font, size_px) such that 'text' fits within 'max_width' including stroke.
+    If text is empty, returns base font immediately.
+    """
     if not text:
         return _load_font(base_size), base_size
     size = base_size
@@ -341,133 +358,217 @@ def _format_percent_off(raw):
             return f"{int(v)}%"
         return f"{v:.0f}%"
     except:
+        # if it's something like "70% OFF", normalize to "70%"
         digits = "".join(ch for ch in s if ch.isdigit())
         return f"{digits}%" if digits else ""
 
 def add_gradient_background(
     img,
-    center_y,                 # kept for signature compatibility (ignored)
-    height=SOLID_HEIGHT,      # maps to SOLID_HEIGHT
-    fade=None,                # ignored (we use BAND_HEIGHT - SOLID_HEIGHT)
-    opacity=MAX_OPACITY
+    center_y,
+    height=BAND_SOLID_HEIGHT,
+    fade=BAND_FADE,
+    opacity=BAND_OPACITY,   # <-- accept opacity
 ):
     """
-    Bottom black gradient (same as collage_bot_slug.py):
-      - Total band height = BAND_HEIGHT (clamped to image height)
-      - Bottom SOLID_HEIGHT px fully opaque (scaled by MAX_OPACITY)
-      - Above within the band fades 0 → MAX_OPACITY via EASE
-    Returns (img_with_band, solid_top, solid_bottom).
+    Paint a horizontal black band centered at center_y with transparent fades above/below.
+    Returns (img_with_band, solid_top, solid_bottom) so caller can keep text inside.
     """
+    # Clamp opacity defensively
+    try:
+        opacity = float(opacity)
+    except Exception:
+        opacity = 1.0
+    opacity = max(0.0, min(1.0, opacity))
+
     img = img.convert("RGBA")
-    band_h = max(1, min(BAND_HEIGHT, img.height))
-    fade_h = max(0, band_h - SOLID_HEIGHT)
+    band_h = height + 2*fade
 
+    # Vertical alpha gradient: fade-in -> solid -> fade-out
     alpha_col = Image.new("L", (1, band_h))
-
-    def ease_ratio(y, denom, mode):
-        if denom <= 0:
-            return 1.0
-        r = min(1.0, y / denom)
-        if mode == "ease-in":  return r ** 2
-        if mode == "ease-out": return 1 - (1 - r) ** 2
-        return r  # linear
-
     for y in range(band_h):
-        if y >= band_h - SOLID_HEIGHT and SOLID_HEIGHT > 0:
-            a = int(MAX_OPACITY * 255)
+        if y < fade:
+            a = int(255 * (y / max(1, fade)))
+        elif y < fade + height:
+            a = 255
         else:
-            denom = (fade_h - 1) if fade_h > 1 else 1
-            ratio = ease_ratio(y, denom, EASE)
-            a = int(round(MAX_OPACITY * 255 * ratio))
+            a = int(255 * (1 - (y - fade - height) / max(1, fade)))
+        a = int(a * opacity)  # apply opacity scaling
         alpha_col.putpixel((0, y), a)
-
     alpha = alpha_col.resize((img.width, band_h))
-    black = Image.new("RGBA", (img.width, band_h), (0,0,0,255))
-    black.putalpha(alpha)
 
-    top = img.height - band_h
-    overlay = Image.new("RGBA", img.size, (0,0,0,0))
-    overlay.paste(black, (0, top), black)
-    out = Image.alpha_composite(img, overlay)
+    black_band = Image.new("RGBA", (img.width, band_h), (0, 0, 0, 255))
+    black_band.putalpha(alpha)
 
-    # Solid region (bottom SOLID_HEIGHT px)
-    solid_top = max(0, img.height - SOLID_HEIGHT)
-    solid_bottom = img.height
-    return out, solid_top, solid_bottom
+    # Overall band placement (includes fades)
+    band_top = center_y - (height // 2 + fade)
+    band_bottom = band_top + band_h
+
+    # Clamp band to image; crop if needed
+    top = max(0, band_top)
+    bottom = min(img.height, band_bottom)
+    if bottom <= top:
+        solid_top = center_y - height // 2
+        solid_bottom = solid_top + height
+        return img, max(0, solid_top), min(img.height, solid_bottom)
+
+    crop_top = top - band_top
+    crop_bottom = crop_top + (bottom - top)
+    band_cropped = black_band.crop((0, crop_top, img.width, crop_bottom))
+
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    overlay.paste(band_cropped, (0, top), band_cropped)
+    img = Image.alpha_composite(img, overlay)
+
+    # Solid readable region
+    solid_top = max(0, center_y - height // 2)
+    solid_bottom = min(img.height, solid_top + height)
+    return img, solid_top, solid_bottom
+
+
 
 def add_text_overlay(image_path, title, platform_raw, percent_off, source_release_date):
     """
-    3-line format:
-      If exact release date == today (including year):
-        1) <title>                  (gold)
-        2) "is releasing today on <platform>!"
-        3) "now <percent_off> OFF!" (if discount present)
-
-      If month/day matches but year differs:
-        1) <title>                  (gold)
-        2) "turns n years old today on <platform>!"
-        3) "now <percent_off> OFF!" (if discount present)
+    Draws up to three centered lines; each line auto-fits its own max width.
+    The stack is visually centered on the SOLID band, but can extend up to
+    BAND_LEEWAY pixels into the fades above/below (bounded spill).
     """
-    base = Image.open(image_path).convert("RGBA")
-    base, _, _ = add_gradient_background(base, center_y=TEXT_CENTER_Y)
-    draw = ImageDraw.Draw(base)
+    # 1) Paint gradient and get solid band bounds
+    img = Image.open(image_path).convert("RGBA")
+    img, solid_top, solid_bottom = add_gradient_background(
+        img, center_y=TEXT_CENTER_Y, height=BAND_SOLID_HEIGHT, fade=BAND_FADE
+    )
+    draw = ImageDraw.Draw(img)
 
-    # --- data prep ---
+    # 2) Build the three lines
     rd = parse_release_date_any(source_release_date)
     today = get_today_ph_date()
-    releasing_today = (rd is not None and rd == today)
-    years = years_elapsed_until_today_ph(rd)
+    n = years_elapsed_until_today_ph(rd)
+
+    if rd and rd == today:
+        # 🎉 Release date is exactly today (including year)
+        line1 = "Today..."
+        releasing_now = True
+    elif n == 0:
+        line1 = "Today..."
+        releasing_now = False
+    else:
+        year_word = "year" if n == 1 else "years"
+        line1 = f"{n} {year_word} ago today..."
+        releasing_now = False
+
+    line2 = title or ""
+
     platform = _map_platform(platform_raw)
     po = _format_percent_off(percent_off)
 
-    # --- lines per new spec ---
-    line1 = title or ""  # highlighted (gold)
+    # Choose verb depending on whether it's a same-year release
+    verb = "is releasing" if releasing_now else "released"
 
-    if releasing_today:
-        core = f"is releasing today"
+    if platform and po:
+        line3 = f"{verb} on {platform}, now {po} OFF!"
+    elif platform:
+        line3 = f"{verb} on {platform}"
+    elif po:
+        line3 = f"{verb}, now {po} OFF!"
     else:
-        n = 0 if years is None else years
-        year_word = "year" if n == 1 else "years"
-        core = f"turns {n} {year_word} old today"
+        line3 = verb
 
-    line2 = f"{core} on {platform}" if platform else f"{core}"
-    line3 = f"and is now on sale for {po} OFF!" if po else ""
-
-    # --- fit fonts to width ---
-    font1, _ = _fit_font_to_width(draw, line1, BASE_FONT_SIZE_PX, LINE1_MAX_WIDTH_PX, STROKE_PX)
-    font2, _ = _fit_font_to_width(draw, line2, BASE_FONT_SIZE_PX, LINE2_MAX_WIDTH_PX, STROKE_PX)
-    font3, _ = _fit_font_to_width(draw, line3, BASE_FONT_SIZE_PX, LINE3_MAX_WIDTH_PX, STROKE_PX)
+    # 3) Width-fit each line independently
+    font_line1, size1 = _fit_font_to_width(draw, line1, BASE_FONT_SIZE_PX, LINE1_MAX_WIDTH_PX, STROKE_PX)
+    font_line2, size2 = _fit_font_to_width(draw, line2, BASE_FONT_SIZE_PX, LINE2_MAX_WIDTH_PX, STROKE_PX)
+    font_line3, size3 = _fit_font_to_width(draw, line3, BASE_FONT_SIZE_PX, LINE3_MAX_WIDTH_PX, STROKE_PX)
 
     def wh(txt, fnt):
         if not txt:
             return (0, 0)
-        bbox = draw.textbbox((0, 0), txt, font=fnt, stroke_width=STROKE_PX, anchor="la")
-        return (bbox[2] - bbox[0], bbox[3] - bbox[1])
+        return _text_size(draw, txt, fnt, STROKE_PX)
 
-    w1, h1 = wh(line1, font1)
-    w2, h2 = wh(line2, font2)
-    w3, h3 = wh(line3, font3)
+    w1, h1 = wh(line1, font_line1)
+    w2, h2 = wh(line2, font_line2)
+    w3, h3 = wh(line3, font_line3)
 
-    lines_present = [h for h in (h1, h2, h3) if h > 0]
-    total_h = sum(lines_present) + LINE_SPACING_PX * (len(lines_present) - 1 if lines_present else 0)
+    lines = []
+    if line1: lines.append(("line1", line1, font_line1, size1, h1, LINE1_MAX_WIDTH_PX))
+    if line2: lines.append(("line2", line2, font_line2, size2, h2, LINE2_MAX_WIDTH_PX))
+    if line3: lines.append(("line3", line3, font_line3, size3, h3, LINE3_MAX_WIDTH_PX))
 
-    # --- center vertically ---
-    cx = base.width // 2
-    top_y = int(round(TEXT_CENTER_Y - total_h / 2))
+    gaps = max(len(lines) - 1, 0)
+    total_h = sum(hh for (_, _, _, _, hh, _) in lines) + gaps * LINE_SPACING_PX
 
-    # --- draw (title gold; others white) ---
+    # 4) Allow bounded spill into fades (solid height + leeway)
+    #    (We still CENTER on the solid band; leeway only affects scaling threshold.)
+    available_h = max(
+        0,
+        (solid_bottom - solid_top) + 2 * BAND_LEEWAY - 2 * BAND_INNER_PADDING
+    )
+
+    if total_h > available_h and available_h > 0:
+        # Scale all font sizes proportionally first
+        scale = available_h / total_h
+        new_sizes = [max(MIN_FONT_SIZE_PX, int(sz * scale)) for (_, _, _, sz, _, _) in lines]
+
+        # Refit each line by width using the new bases
+        new_lines = []
+        for (entry, new_base) in zip(lines, new_sizes):
+            key, txt, _, _, _, max_w = entry
+            fnt, final_sz = _fit_font_to_width(draw, txt, new_base, max_w, STROKE_PX)
+            _, hh = wh(txt, fnt)
+            new_lines.append((key, txt, fnt, final_sz, hh, max_w))
+        lines = new_lines
+
+        # Recompute total height
+        gaps = max(len(lines) - 1, 0)
+        total_h = sum(hh for (_, _, _, _, hh, _) in lines) + gaps * LINE_SPACING_PX
+
+        # Final squeeze if still one or two pixels over
+        while total_h > available_h and any(sz > MIN_FONT_SIZE_PX for (_, _, _, sz, _, _) in lines):
+            squeezed = []
+            for (key, txt, fnt, sz, hh, max_w) in lines:
+                next_base = max(MIN_FONT_SIZE_PX, sz - 1)
+                fnt2, sz2 = _fit_font_to_width(draw, txt, next_base, max_w, STROKE_PX)
+                _, hh2 = wh(txt, fnt2)
+                squeezed.append((key, txt, fnt2, sz2, hh2, max_w))
+            lines = squeezed
+            gaps = max(len(lines) - 1, 0)
+            total_h = sum(hh for (_, _, _, _, hh, _) in lines) + gaps * LINE_SPACING_PX
+
+    # 5) Placement — center on the SOLID band, then clamp to +- leeway
+    center_x = img.width // 2
+    band_center = (solid_top + solid_bottom) // 2
+    top_y = int(round(band_center - total_h / 2))
+
+    # Bounded spill: keep the block within [solid_top - leeway, solid_bottom + leeway]
+    upper = solid_top - BAND_LEEWAY + BAND_INNER_PADDING
+    lower = solid_bottom + BAND_LEEWAY - BAND_INNER_PADDING
+    if top_y < upper:
+        top_y = upper
+    if top_y + total_h > lower:
+        top_y = lower - total_h
+
+    # 6) Draw
+    title_color = (255, 185, 18)  # #ffb912
+    other_color = (255, 255, 255)
+    stroke_color = (0, 0, 0)
+
     y = top_y
-    if line1:
-        draw.text((cx, y), line1, font=font1, fill=TITLE_COLOR, anchor="ma")
-        y += h1 + LINE_SPACING_PX
-    if line2:
-        draw.text((cx, y), line2, font=font2, fill=OTHER_COLOR, anchor="ma")
-        y += h2 + LINE_SPACING_PX
-    if line3:
-        draw.text((cx, y), line3, font=font3, fill=OTHER_COLOR, anchor="ma")
+    for key, txt, fnt, sz, hh, _ in lines:
+        fill = title_color if key == "line2" else other_color
+        draw.text(
+            (center_x, y),
+            txt,
+            font=fnt,
+            fill=fill,
+            stroke_width=STROKE_PX,
+            stroke_fill=stroke_color,
+            anchor="ma",
+        )
+        y += hh + LINE_SPACING_PX
 
-    base.convert("RGB").save(image_path, "JPEG", quality=90, optimize=True, progressive=True)
+    # 7) Save
+    img = img.convert("RGB")
+    img.save(image_path, "JPEG", quality=90, optimize=True, progressive=True)
     return image_path
+
 
 
 # ========= MAIN =========
@@ -509,6 +610,7 @@ def main():
     for idx, best in enumerate(candidates, start=1):
         slug = (best.get("Slug") or "").strip()
         title = best.get("Title")
+        platform = best.get("platform")
         if not slug:
             print(f"[{idx}/{len(candidates)}] Skipping '{title}' (no slug).")
             continue
@@ -561,19 +663,15 @@ def main():
 
     out_jpg = os.path.join(OUTPUT_DIR, f"collage_{slug}.jpg")
     try:
-        if len(urls) >= 6:
-            make_2x4_collage(urls, out_jpg)
-        elif len(urls) == 5:
-            make_5tile_collage(urls, out_jpg)
-        else:
-            print(f"Skipping {slug}, not enough screenshots ({len(urls)}).")
-            return
-        print(f"Saved collage to: {out_jpg}")
+        # 2x4 only when >8 screenshots; else keep your normal 5-tile behavior
+        collage_urls = choose_collage_urls(urls)
+        make_collage_1242(collage_urls, out_jpg)
+        print(f"Saved collage to: {out_jpg} (tiles={len(collage_urls)})")
     except Exception as e:
         print(f"Failed to create collage: {e}")
         return
 
-    # ----- Add text overlay -----
+    # ----- Add text overlay on top of the collage -----
     try:
         add_text_overlay(
             out_jpg,
@@ -586,6 +684,7 @@ def main():
     except Exception as e:
         print(f"Failed to add text overlay: {e}")
 
+    # ----- Add logo overlay -----
     try:
         add_logo_overlay(out_jpg, "msb_logo.png", (10,10))
         print("Applied logo overlay.")
