@@ -90,7 +90,7 @@ def slug_variants(slug: str) -> list:
     if slug.endswith("-nintendo-switch"):
         variants.append(slug.replace("-nintendo-switch", ""))
 
-    manual = {"doom": "doom--1", "survival-kids": "survival-kids--1", "blasphemous-2": "blasphemous-ii"}
+    manual = {"doom": "doom--1", "survival-kids": "survival-kids--1", "blasphemous-2": "blasphemous-ii", "dark-deity-2": "dark-deity-ii"}
 
     # 🔑 Check all generated variants against manual overrides
     for v in list(variants):  
@@ -692,4 +692,5 @@ def main():
         print(f"Failed to add logo overlay: {e}")
 
 if __name__ == "__main__":
+
     main()
