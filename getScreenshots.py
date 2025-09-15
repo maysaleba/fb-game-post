@@ -36,7 +36,12 @@ slug_overrides = {
     "disney-epic-mickey-rebrushed": "epic-mickey-rebrushed",
     "bladechimera": "blade-chimera",
     "climb": "climb--5",
-    "unicorn-overlord": "unicorn-overlord--1"
+    "unicorn-overlord": "unicorn-overlord--1",
+    "rune-factory-guardians-of-azuma": "rune-factory-guardians-of-azuma--1",
+    "atelier-arland-series-deluxe-pack": "atelier-alchemists-of-arland-1-2-3-dx",
+    "sunseed-island-new-journey-collection": "sunseed-island",
+    "fate-extella-link": "fate-slash-extella-link",
+    "grand-theft-auto-the-trilogy-the-definitive-edition": "grand-theft-auto-the-trilogy-the-definitive-edition--1"
 }
 
 def chunked(iterable: List, n: int) -> Iterable[List]:
