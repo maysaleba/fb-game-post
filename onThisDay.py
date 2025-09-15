@@ -61,12 +61,23 @@ MIN_SCREENSHOTS = 5
 # ========= HELPERS =========
 def choose_collage_urls(urls: list[str]) -> list[str]:
     """
-    Collage rule:
-      - >8 screenshots -> use first 8 (2x4)
-      - else           -> keep existing behavior (cap at 5 for your special layout)
+    Always produce 5 tiles for a 2x2 + 1 wide layout.
+    - Take the first 5 screenshots when available.
+    - If fewer than 5 exist, repeat from the start to pad to 5.
     """
     urls = [u for u in urls if u]
-    return urls[:8] if len(urls) > 8 else urls[:5]
+    if not urls:
+        return []
+    want = 5
+    if len(urls) >= want:
+        return urls[:want]
+    # pad by repeating from the start (keeps order/styling consistent)
+    padded = urls[:]
+    i = 0
+    while len(padded) < want:
+        padded.append(urls[i % len(urls)])
+        i += 1
+    return padded
 
 
 def add_logo_overlay(image_path, logo_path="msb_logo.png", pos=(10,10)):
@@ -694,3 +705,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+
