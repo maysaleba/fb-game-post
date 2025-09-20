@@ -41,7 +41,9 @@ slug_overrides = {
     "atelier-arland-series-deluxe-pack": "atelier-alchemists-of-arland-1-2-3-dx",
     "sunseed-island-new-journey-collection": "sunseed-island",
     "fate-extella-link": "fate-slash-extella-link",
-    "grand-theft-auto-the-trilogy-the-definitive-edition": "grand-theft-auto-the-trilogy-the-definitive-edition--1"
+    "grand-theft-auto-the-trilogy-the-definitive-edition": "grand-theft-auto-the-trilogy-the-definitive-edition--1",
+    "final-fantasy-x-x-2-hd-remaster": "final-fantasy-x-slash-x-2-hd-remaster",
+    "fate-extella-the-umbral-star": "fate-slash-extella-the-umbral-star"
 }
 
 def chunked(iterable: List, n: int) -> Iterable[List]:
