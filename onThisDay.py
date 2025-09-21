@@ -101,7 +101,12 @@ def slug_variants(slug: str) -> list:
     if slug.endswith("-nintendo-switch"):
         variants.append(slug.replace("-nintendo-switch", ""))
 
-    manual = {"doom": "doom--1", "survival-kids": "survival-kids--1", "blasphemous-2": "blasphemous-ii", "dark-deity-2": "dark-deity-ii"}
+    manual = {"doom": "doom--1", 
+              "survival-kids": "survival-kids--1", 
+              "blasphemous-2": "blasphemous-ii", 
+              "dark-deity-2": "dark-deity-ii", 
+              "dragon-ball-xenoverse-2-for-nintendo-switch-switch": "dragon-ball-xenoverse-2",
+             }
 
     # 🔑 Check all generated variants against manual overrides
     for v in list(variants):  
@@ -705,4 +710,5 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
