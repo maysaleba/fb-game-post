@@ -45,7 +45,8 @@ slug_overrides = {
     "final-fantasy-x-x-2-hd-remaster": "final-fantasy-x-slash-x-2-hd-remaster",
     "fate-extella-the-umbral-star": "fate-slash-extella-the-umbral-star",
     "ni-no-kuni-ii-revenant-kingdom-princes-edition": "ni-no-kuni-ii-revenant-kingdom-the-princes-edition",
-    "hades": "hades--1"
+    "hades": "hades--1",
+    "street-fighter-6": "street-fighter-6--1"
 }
 
 def chunked(iterable: List, n: int) -> Iterable[List]:
