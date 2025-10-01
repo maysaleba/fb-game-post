@@ -41,6 +41,9 @@ STROKE_PX          = 0
 TEXT_CENTER_Y      = 774  # y-axis center for the ENTIRE block of three lines
 LINE_SPACING_PX    = 10   # spacing between lines (visual gap)
 
+# NEW: global character spacing (tracking) in pixels; can be negative
+CHAR_SPACING_PX    = -3
+
 # Per-line max widths + minimum font size (for per-line auto-fit)
 LINE1_MAX_WIDTH_PX = 1100
 LINE2_MAX_WIDTH_PX = TITLE_MAX_WIDTH_PX
@@ -338,6 +341,47 @@ def _text_size(draw, text, font, stroke):
     h = bbox[3] - bbox[1]
     return w, h
 
+def _text_size_letterspaced(draw, text, font, stroke, letter_spacing_px):
+    """Width/height when drawing text char-by-char with extra spacing."""
+    if not text:
+        return (0, 0)
+    # Height from the full string (accurate with stroke)
+    _, h = _text_size(draw, text, font, stroke)
+    # Width = sum of glyph widths + spacing * (n-1)
+    total_w = 0
+    for ch in text:
+        cw, _ = _text_size(draw, ch, font, stroke)
+        total_w += cw
+    if len(text) > 1:
+        total_w += (len(text) - 1) * letter_spacing_px
+    return total_w, h
+
+def _draw_text_letterspaced(draw, x, y, text, font, fill, stroke_width, stroke_fill, letter_spacing_px):
+    """Draw text centered manually by starting at x and advancing per glyph."""
+    cur_x = x
+    for i, ch in enumerate(text):
+        draw.text((cur_x, y), ch, font=font, fill=fill,
+                  stroke_width=stroke_width, stroke_fill=stroke_fill, anchor="la")
+        cw, _ = _text_size(draw, ch, font, stroke_width)
+        cur_x += cw
+        if i < len(text) - 1:
+            cur_x += letter_spacing_px
+    return cur_x - x
+
+def _fit_font_to_width_with_spacing(draw, text, base_size, max_width, stroke, letter_spacing_px,
+                                    min_px=MIN_FONT_SIZE_PX, step=2):
+    if not text:
+        return _load_font(base_size), base_size
+    size = base_size
+    while size > min_px:
+        f = _load_font(size)
+        w, _ = _text_size_letterspaced(draw, text, f, stroke, letter_spacing_px)
+        if w <= max_width:
+            return f, size
+        size -= step
+    fmin = _load_font(min_px)
+    return fmin, min_px
+
 def _fit_font_to_width(draw, text, base_size, max_width, stroke, min_px=MIN_FONT_SIZE_PX, step=2):
     """
     Returns (font, size_px) such that 'text' fits within 'max_width' including stroke.
@@ -490,14 +534,16 @@ def add_text_overlay(image_path, title, platform_raw, percent_off, source_releas
         line3 = verb
 
     # 3) Width-fit each line independently
-    font_line1, size1 = _fit_font_to_width(draw, line1, BASE_FONT_SIZE_PX, LINE1_MAX_WIDTH_PX, STROKE_PX)
-    font_line2, size2 = _fit_font_to_width(draw, line2, BASE_FONT_SIZE_PX, LINE2_MAX_WIDTH_PX, STROKE_PX)
-    font_line3, size3 = _fit_font_to_width(draw, line3, BASE_FONT_SIZE_PX, LINE3_MAX_WIDTH_PX, STROKE_PX)
+    font_line1, size1 = _fit_font_to_width_with_spacing(draw, line1, BASE_FONT_SIZE_PX, LINE1_MAX_WIDTH_PX, STROKE_PX, CHAR_SPACING_PX)
+    font_line2, size2 = _fit_font_to_width_with_spacing(draw, line2, BASE_FONT_SIZE_PX, LINE2_MAX_WIDTH_PX, STROKE_PX, CHAR_SPACING_PX)
+    font_line3, size3 = _fit_font_to_width_with_spacing(draw, line3, BASE_FONT_SIZE_PX, LINE3_MAX_WIDTH_PX, STROKE_PX, CHAR_SPACING_PX)
 
     def wh(txt, fnt):
         if not txt:
             return (0, 0)
-        return _text_size(draw, txt, fnt, STROKE_PX)
+        w, _ = _text_size_letterspaced(draw, txt, fnt, STROKE_PX, CHAR_SPACING_PX)
+        _, h = _text_size(draw, txt, fnt, STROKE_PX)  # height unaffected by spacing
+        return w, h
 
     w1, h1 = wh(line1, font_line1)
     w2, h2 = wh(line2, font_line2)
@@ -527,7 +573,7 @@ def add_text_overlay(image_path, title, platform_raw, percent_off, source_releas
         new_lines = []
         for (entry, new_base) in zip(lines, new_sizes):
             key, txt, _, _, _, max_w = entry
-            fnt, final_sz = _fit_font_to_width(draw, txt, new_base, max_w, STROKE_PX)
+            fnt, final_sz = _fit_font_to_width_with_spacing(draw, txt, new_base, max_w, STROKE_PX, CHAR_SPACING_PX)
             _, hh = wh(txt, fnt)
             new_lines.append((key, txt, fnt, final_sz, hh, max_w))
         lines = new_lines
@@ -541,7 +587,7 @@ def add_text_overlay(image_path, title, platform_raw, percent_off, source_releas
             squeezed = []
             for (key, txt, fnt, sz, hh, max_w) in lines:
                 next_base = max(MIN_FONT_SIZE_PX, sz - 1)
-                fnt2, sz2 = _fit_font_to_width(draw, txt, next_base, max_w, STROKE_PX)
+                fnt2, sz2 = _fit_font_to_width_with_spacing(draw, txt, next_base, max_w, STROKE_PX, CHAR_SPACING_PX)
                 _, hh2 = wh(txt, fnt2)
                 squeezed.append((key, txt, fnt2, sz2, hh2, max_w))
             lines = squeezed
@@ -569,15 +615,10 @@ def add_text_overlay(image_path, title, platform_raw, percent_off, source_releas
     y = top_y
     for key, txt, fnt, sz, hh, _ in lines:
         fill = title_color if key == "line2" else other_color
-        draw.text(
-            (center_x, y),
-            txt,
-            font=fnt,
-            fill=fill,
-            stroke_width=STROKE_PX,
-            stroke_fill=stroke_color,
-            anchor="ma",
-        )
+        # compute centered start x using spacing-aware width
+        w_line, _ = _text_size_letterspaced(draw, txt, fnt, STROKE_PX, CHAR_SPACING_PX)
+        x_start = center_x - w_line // 2
+        _draw_text_letterspaced(draw, x_start, y, txt, fnt, fill, STROKE_PX, stroke_color, CHAR_SPACING_PX)
         y += hh + LINE_SPACING_PX
 
     # 7) Save
@@ -710,5 +751,6 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
