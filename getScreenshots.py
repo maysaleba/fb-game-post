@@ -47,7 +47,8 @@ slug_overrides = {
     "ni-no-kuni-ii-revenant-kingdom-princes-edition": "ni-no-kuni-ii-revenant-kingdom-the-princes-edition",
     "hades": "hades--1",
     "street-fighter-6": "street-fighter-6--1",
-    "mega-man-zero-zx-legacy-collection": "mega-man-zero-slash-zx-legacy-collection"
+    "mega-man-zero-zx-legacy-collection": "mega-man-zero-slash-zx-legacy-collection",
+    "live-a-live": "live-a-live--1"
 }
 
 def chunked(iterable: List, n: int) -> Iterable[List]:
