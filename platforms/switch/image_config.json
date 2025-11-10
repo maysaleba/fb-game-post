@@ -7,10 +7,10 @@
     "Nintendo Switch 2": "platforms/switch/switch_2_button.png"
   },
   "bottom_text_path": "bottom_text.png",
-  "font_path": "Axiforma-Black.otf",
+  "font_path": "SlimSansSerif-Bold.ttf",
   "canvas_width": 1000,
   "canvas_height": 1000,
-  "font_size": 48,
-  "text_y": 785,
+  "font_size": 64,
+  "text_y": 705,
   "max_text_width": 850
 }
