@@ -285,7 +285,7 @@ for i, game in enumerate(games):
 
     # === Draw text (same layout behavior as your current script) ===
     draw = ImageDraw.Draw(canvas_rgba)
-    line_spacing = 10
+    line_spacing = 5
     line_height = font.getbbox("Ay")[3] - font.getbbox("Ay")[1]
     y = TEXT_Y
 
@@ -314,3 +314,4 @@ for i, game in enumerate(games):
     final_image.save(output_path, 'JPEG')
 
 print(f"✅ All images saved in '{OUTPUT_FOLDER}' with balanced, UPPERCASE titles and colorized sale text.")
+
