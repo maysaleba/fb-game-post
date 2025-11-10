@@ -27,19 +27,17 @@ BAND_SOLID_HEIGHT = 200   # readable solid band height
 BAND_FADE          = 200  # fade above and below the solid band
 BAND_INNER_PADDING = 9    # small top/bottom padding inside the solid area
 
-
 # Allow text to extend this many pixels outside the solid band
 BAND_LEEWAY = 60   # try 60–80px; tweak until it looks good
-BAND_OPACITY       = 0.9 # <--- NEW: 0.0 (transparent) → 1.0 (fully opaque)
-
+BAND_OPACITY       = 0.9 # 0.0 (transparent) → 1.0 (opaque)
 
 # Text overlay
-FONT_PATH          = "Axiforma-Black.otf"  # must exist in repo root
+FONT_PATH          = "SlimSansSerif-Bold.ttf"  # must exist in repo root
 BASE_FONT_SIZE_PX  = 88
 TITLE_MAX_WIDTH_PX = 1100
 STROKE_PX          = 0
 TEXT_CENTER_Y      = 774  # y-axis center for the ENTIRE block of three lines
-LINE_SPACING_PX    = 10   # spacing between lines (visual gap)
+LINE_SPACING_PX    = 16   # spacing between lines (visual gap)
 
 # NEW: global character spacing (tracking) in pixels; can be negative
 CHAR_SPACING_PX    = -3
@@ -49,6 +47,9 @@ LINE1_MAX_WIDTH_PX = 1100
 LINE2_MAX_WIDTH_PX = TITLE_MAX_WIDTH_PX
 LINE3_MAX_WIDTH_PX = 1100
 MIN_FONT_SIZE_PX   = 18
+
+# Wrap only if single-line would shrink below this size
+SINGLE_LINE_MIN_SIZE_PX = 64   # e.g., keep on one line if it can be ≥64px
 
 # IGDB creds
 CLIENT_ID     = os.getenv("IGDB_CLIENT_ID", "jxnpf283ohcc4z1ou74w2vzkdew9vi")
@@ -82,7 +83,6 @@ def choose_collage_urls(urls: list[str]) -> list[str]:
         i += 1
     return padded
 
-
 def add_logo_overlay(image_path, logo_path="msb_logo.png", pos=(10,10)):
     """Overlay logo at given pos without resizing."""
     try:
@@ -95,7 +95,7 @@ def add_logo_overlay(image_path, logo_path="msb_logo.png", pos=(10,10)):
     except Exception as e:
         print(f"⚠️ Failed to overlay logo: {e}")
         return image_path
-        
+
 def slug_variants(slug: str) -> list:
     variants = [slug]
     if "-switch" in slug: variants.append(slug.replace("-switch", ""))
@@ -104,15 +104,15 @@ def slug_variants(slug: str) -> list:
     if slug.endswith("-nintendo-switch"):
         variants.append(slug.replace("-nintendo-switch", ""))
 
-    manual = {"doom": "doom--1", 
-              "survival-kids": "survival-kids--1", 
-              "blasphemous-2": "blasphemous-ii", 
-              "dark-deity-2": "dark-deity-ii", 
+    manual = {"doom": "doom--1",
+              "survival-kids": "survival-kids--1",
+              "blasphemous-2": "blasphemous-ii",
+              "dark-deity-2": "dark-deity-ii",
               "dragon-ball-xenoverse-2-for-nintendo-switch-switch": "dragon-ball-xenoverse-2",
              }
 
     # 🔑 Check all generated variants against manual overrides
-    for v in list(variants):  
+    for v in list(variants):
         if v in manual:
             variants.insert(0, manual[v])  # add override at the front
 
@@ -418,7 +418,6 @@ def _format_percent_off(raw):
             return f"{int(v)}%"
         return f"{v:.0f}%"
     except:
-        # if it's something like "70% OFF", normalize to "70%"
         digits = "".join(ch for ch in s if ch.isdigit())
         return f"{digits}%" if digits else ""
 
@@ -427,13 +426,13 @@ def add_gradient_background(
     center_y,
     height=BAND_SOLID_HEIGHT,
     fade=BAND_FADE,
-    opacity=BAND_OPACITY,   # <-- accept opacity
+    opacity=BAND_OPACITY,
 ):
     """
     Paint a horizontal black band centered at center_y with transparent fades above/below.
     Returns (img_with_band, solid_top, solid_bottom) so caller can keep text inside.
     """
-    # Clamp opacity defensively
+    # Clamp opacity
     try:
         opacity = float(opacity)
     except Exception:
@@ -452,7 +451,7 @@ def add_gradient_background(
             a = 255
         else:
             a = int(255 * (1 - (y - fade - height) / max(1, fade)))
-        a = int(a * opacity)  # apply opacity scaling
+        a = int(a * opacity)
         alpha_col.putpixel((0, y), a)
     alpha = alpha_col.resize((img.width, band_h))
 
@@ -484,13 +483,47 @@ def add_gradient_background(
     solid_bottom = min(img.height, solid_top + height)
     return img, solid_top, solid_bottom
 
+# ---------- NEW: smart 2-line splitter for title (avoid orphans) ----------
+def split_title_two_lines(draw, text, base_size, max_width, stroke, letter_spacing_px,
+                          min_second_words=2, min_second_chars=6):
+    """
+    Try to split `text` into two balanced lines at base size (no shrink yet).
+    Reject splits that create a too-short second line ('orphans').
+    Returns (left, right). If no good split, returns (text, "").
+    """
+    text = (text or "").strip()
+    words = text.split()
+    if len(words) <= min_second_words:
+        return text, ""
 
+    best = None  # (score_tuple, (left,right))
+    f_base = _load_font(base_size)
+
+    for i in range(1, len(words)):
+        left  = " ".join(words[:i])
+        right = " ".join(words[i:])
+
+        # orphan guards for the 2nd line
+        if len(right.replace(":", "")) < min_second_chars:
+            continue
+        if len(right.split()) < min_second_words:
+            continue
+
+        # measure widths at base size
+        wL, _ = _text_size_letterspaced(draw, left,  f_base, stroke, letter_spacing_px)
+        wR, _ = _text_size_letterspaced(draw, right, f_base, stroke, letter_spacing_px)
+
+        # must individually fit within max width at some size; we only score balance here
+        score = (max(wL, wR), abs(wL - wR))  # minimize the max, then the imbalance
+        if best is None or score < best[0]:
+            best = (score, (left, right))
+
+    return best[1] if best else (text, "")
 
 def add_text_overlay(image_path, title, platform_raw, percent_off, source_release_date):
     """
-    Draws up to three centered lines; each line auto-fits its own max width.
-    The stack is visually centered on the SOLID band, but can extend up to
-    BAND_LEEWAY pixels into the fades above/below (bounded spill).
+    Draws up to three centered lines; the title prefers 2 lines before shrinking.
+    The stack is visually centered on the SOLID band, with bounded spill into fades.
     """
     # 1) Paint gradient and get solid band bounds
     img = Image.open(image_path).convert("RGBA")
@@ -499,13 +532,12 @@ def add_text_overlay(image_path, title, platform_raw, percent_off, source_releas
     )
     draw = ImageDraw.Draw(img)
 
-    # 2) Build the three lines
+    # 2) Build logical lines
     rd = parse_release_date_any(source_release_date)
     today = get_today_ph_date()
     n = years_elapsed_until_today_ph(rd)
 
     if rd and rd == today:
-        # 🎉 Release date is exactly today (including year)
         line1 = "Today..."
         releasing_now = True
     elif n == 0:
@@ -520,8 +552,6 @@ def add_text_overlay(image_path, title, platform_raw, percent_off, source_releas
 
     platform = _map_platform(platform_raw)
     po = _format_percent_off(percent_off)
-
-    # Choose verb depending on whether it's a same-year release
     verb = "is releasing" if releasing_now else "released"
 
     if platform and po:
@@ -533,43 +563,86 @@ def add_text_overlay(image_path, title, platform_raw, percent_off, source_releas
     else:
         line3 = verb
 
-    # 3) Width-fit each line independently
+    # 2b) 🔠 ALL CAPS before measurements so sizing matches final output
+    line1 = (line1 or "").upper()
+    line2 = (line2 or "").upper()
+    line3 = (line3 or "").upper()
+
+    # 3) Width-fit line1 and line3 (single lines)
     font_line1, size1 = _fit_font_to_width_with_spacing(draw, line1, BASE_FONT_SIZE_PX, LINE1_MAX_WIDTH_PX, STROKE_PX, CHAR_SPACING_PX)
-    font_line2, size2 = _fit_font_to_width_with_spacing(draw, line2, BASE_FONT_SIZE_PX, LINE2_MAX_WIDTH_PX, STROKE_PX, CHAR_SPACING_PX)
     font_line3, size3 = _fit_font_to_width_with_spacing(draw, line3, BASE_FONT_SIZE_PX, LINE3_MAX_WIDTH_PX, STROKE_PX, CHAR_SPACING_PX)
 
+    # --- TITLE: decide if we need wrapping at all ---
+    # 1) How small would a SINGLE line need to be to fit?
+    f_single, s_single = _fit_font_to_width_with_spacing(
+        draw, line2, BASE_FONT_SIZE_PX, LINE2_MAX_WIDTH_PX, STROKE_PX, CHAR_SPACING_PX
+    )
+
+    # 2) If the single line can stay reasonably large, DON'T split.
+    #    (Use SINGLE_LINE_MIN_SIZE_PX to tune your tolerance.)
+    should_try_wrap = (s_single < SINGLE_LINE_MIN_SIZE_PX)
+
+    if should_try_wrap:
+        # Try 2-line split first (avoid orphans), then fit each half.
+        t2a, t2b = split_title_two_lines(
+            draw, line2, BASE_FONT_SIZE_PX, LINE2_MAX_WIDTH_PX, STROKE_PX, CHAR_SPACING_PX,
+            min_second_words=2, min_second_chars=6
+        )
+    else:
+        t2a, t2b = (line2, "")
+
+    if t2b:
+        # Fit both halves and enforce a SHARED size
+        f2a, s2a = _fit_font_to_width_with_spacing(draw, t2a, BASE_FONT_SIZE_PX, LINE2_MAX_WIDTH_PX, STROKE_PX, CHAR_SPACING_PX)
+        f2b, s2b = _fit_font_to_width_with_spacing(draw, t2b, BASE_FONT_SIZE_PX, LINE2_MAX_WIDTH_PX, STROKE_PX, CHAR_SPACING_PX)
+        shared = min(s2a, s2b)
+        f2a, s2a = _fit_font_to_width_with_spacing(draw, t2a, shared, LINE2_MAX_WIDTH_PX, STROKE_PX, CHAR_SPACING_PX)
+        f2b, s2b = _fit_font_to_width_with_spacing(draw, t2b, shared, LINE2_MAX_WIDTH_PX, STROKE_PX, CHAR_SPACING_PX)
+        title_is_two_lines = True
+    else:
+        # Use the single-line fit we already computed
+        f2, s2 = f_single, s_single
+        title_is_two_lines = False
+
+
+    # handy size helper
     def wh(txt, fnt):
         if not txt:
             return (0, 0)
         w, _ = _text_size_letterspaced(draw, txt, fnt, STROKE_PX, CHAR_SPACING_PX)
-        _, h = _text_size(draw, txt, fnt, STROKE_PX)  # height unaffected by spacing
+        _, h = _text_size(draw, txt, fnt, STROKE_PX)
         return w, h
 
-    w1, h1 = wh(line1, font_line1)
-    w2, h2 = wh(line2, font_line2)
-    w3, h3 = wh(line3, font_line3)
-
+    # 5) Build line list (keep key=="line2" for both title rows to retain title color)
     lines = []
-    if line1: lines.append(("line1", line1, font_line1, size1, h1, LINE1_MAX_WIDTH_PX))
-    if line2: lines.append(("line2", line2, font_line2, size2, h2, LINE2_MAX_WIDTH_PX))
-    if line3: lines.append(("line3", line3, font_line3, size3, h3, LINE3_MAX_WIDTH_PX))
+    if line1:
+        _, h1 = wh(line1, font_line1)
+        lines.append(("line1", line1, font_line1, size1, h1, LINE1_MAX_WIDTH_PX))
 
+    if title_is_two_lines:
+        _, h2a = wh(t2a, f2a)
+        lines.append(("line2", t2a, f2a, s2a, h2a, LINE2_MAX_WIDTH_PX))
+        _, h2b = wh(t2b, f2b)
+        lines.append(("line2", t2b, f2b, s2b, h2b, LINE2_MAX_WIDTH_PX))
+    else:
+        _, h2 = wh(line2, f2)
+        lines.append(("line2", line2, f2, s2, h2, LINE2_MAX_WIDTH_PX))
+
+    if line3:
+        _, h3 = wh(line3, font_line3)
+        lines.append(("line3", line3, font_line3, size3, h3, LINE3_MAX_WIDTH_PX))
+
+    # 6) Compute total height and allow bounded spill
     gaps = max(len(lines) - 1, 0)
     total_h = sum(hh for (_, _, _, _, hh, _) in lines) + gaps * LINE_SPACING_PX
 
-    # 4) Allow bounded spill into fades (solid height + leeway)
-    #    (We still CENTER on the solid band; leeway only affects scaling threshold.)
-    available_h = max(
-        0,
-        (solid_bottom - solid_top) + 2 * BAND_LEEWAY - 2 * BAND_INNER_PADDING
-    )
+    available_h = max(0, (solid_bottom - solid_top) + 2 * BAND_LEEWAY - 2 * BAND_INNER_PADDING)
 
     if total_h > available_h and available_h > 0:
-        # Scale all font sizes proportionally first
+        # proportional scale down: reduce base sizes proportionally, then refit per width
         scale = available_h / total_h
         new_sizes = [max(MIN_FONT_SIZE_PX, int(sz * scale)) for (_, _, _, sz, _, _) in lines]
 
-        # Refit each line by width using the new bases
         new_lines = []
         for (entry, new_base) in zip(lines, new_sizes):
             key, txt, _, _, _, max_w = entry
@@ -578,11 +651,10 @@ def add_text_overlay(image_path, title, platform_raw, percent_off, source_releas
             new_lines.append((key, txt, fnt, final_sz, hh, max_w))
         lines = new_lines
 
-        # Recompute total height
         gaps = max(len(lines) - 1, 0)
         total_h = sum(hh for (_, _, _, _, hh, _) in lines) + gaps * LINE_SPACING_PX
 
-        # Final squeeze if still one or two pixels over
+        # Final squeeze if still slightly over
         while total_h > available_h and any(sz > MIN_FONT_SIZE_PX for (_, _, _, sz, _, _) in lines):
             squeezed = []
             for (key, txt, fnt, sz, hh, max_w) in lines:
@@ -594,12 +666,11 @@ def add_text_overlay(image_path, title, platform_raw, percent_off, source_releas
             gaps = max(len(lines) - 1, 0)
             total_h = sum(hh for (_, _, _, _, hh, _) in lines) + gaps * LINE_SPACING_PX
 
-    # 5) Placement — center on the SOLID band, then clamp to +- leeway
+    # 7) Placement — center on the SOLID band, then clamp to +- leeway
     center_x = img.width // 2
     band_center = (solid_top + solid_bottom) // 2
     top_y = int(round(band_center - total_h / 2))
 
-    # Bounded spill: keep the block within [solid_top - leeway, solid_bottom + leeway]
     upper = solid_top - BAND_LEEWAY + BAND_INNER_PADDING
     lower = solid_bottom + BAND_LEEWAY - BAND_INNER_PADDING
     if top_y < upper:
@@ -607,7 +678,7 @@ def add_text_overlay(image_path, title, platform_raw, percent_off, source_releas
     if top_y + total_h > lower:
         top_y = lower - total_h
 
-    # 6) Draw
+    # 8) Draw
     title_color = (255, 185, 18)  # #ffb912
     other_color = (255, 255, 255)
     stroke_color = (0, 0, 0)
@@ -615,18 +686,15 @@ def add_text_overlay(image_path, title, platform_raw, percent_off, source_releas
     y = top_y
     for key, txt, fnt, sz, hh, _ in lines:
         fill = title_color if key == "line2" else other_color
-        # compute centered start x using spacing-aware width
         w_line, _ = _text_size_letterspaced(draw, txt, fnt, STROKE_PX, CHAR_SPACING_PX)
         x_start = center_x - w_line // 2
         _draw_text_letterspaced(draw, x_start, y, txt, fnt, fill, STROKE_PX, stroke_color, CHAR_SPACING_PX)
         y += hh + LINE_SPACING_PX
 
-    # 7) Save
+    # 9) Save
     img = img.convert("RGB")
     img.save(image_path, "JPEG", quality=90, optimize=True, progressive=True)
     return image_path
-
-
 
 # ========= MAIN =========
 def main():
@@ -634,7 +702,7 @@ def main():
     if not isinstance(data, list) or not data:
         print("Source JSON is empty or not a list. Exiting.")
         return
-    
+
     data = [item for item in data if not str(item.get("ESRBRating", "")).strip()]
     if not data:
         print("No entries with empty ESRBRating. Exiting.")
@@ -720,7 +788,6 @@ def main():
 
     out_jpg = os.path.join(OUTPUT_DIR, f"collage_{slug}.jpg")
     try:
-        # 2x4 only when >8 screenshots; else keep your normal 5-tile behavior
         collage_urls = choose_collage_urls(urls)
         make_collage_1242(collage_urls, out_jpg)
         print(f"Saved collage to: {out_jpg} (tiles={len(collage_urls)})")
@@ -749,8 +816,4 @@ def main():
         print(f"Failed to add logo overlay: {e}")
 
 if __name__ == "__main__":
-
     main()
-
-
-
