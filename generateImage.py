@@ -54,15 +54,101 @@ def resize_keep_aspect(image, target_width):
 def paste_top_aligned(canvas, img, x, y):
     canvas.paste(img, (x, y))
 
-def fit_title_font(title, font_path, max_width, initial_size):
+def text_width(px_font, s: str) -> int:
+    if not s:
+        return 0
+    bbox = px_font.getbbox(s)
+    return bbox[2] - bbox[0]
+
+def best_two_line_wrap(title: str, fnt, max_width: int, min_words_per_line: int = 2):
+    """
+    Try all word break positions and choose the split that:
+      1) keeps BOTH lines <= max_width,
+      2) minimizes |w1 - w2| (balance),
+      3) penalizes splits with a 1-word line (orphans).
+    Returns [line1, line2] or None if no valid split at this font size.
+    """
+    words = title.split()
+    if len(words) <= 1:
+        return None
+
+    best = None
+    best_score = None
+
+    for k in range(1, len(words)):  # break between words[k-1] | words[k]
+        line1 = " ".join(words[:k])
+        line2 = " ".join(words[k:])
+
+        # discourage orphaned 1-word lines
+        orphan_penalty = 3000 if (len(words[:k]) < min_words_per_line or len(words[k:]) < min_words_per_line) else 0
+
+        w1 = text_width(fnt, line1)
+        w2 = text_width(fnt, line2)
+
+        if w1 <= max_width and w2 <= max_width:
+            balance_score = abs(w1 - w2)        # prefer similar widths
+            total_score = w1 + w2               # tie-breaker: smaller total width
+            score = (balance_score * 1000) + total_score + orphan_penalty
+            if best_score is None or score < best_score:
+                best_score = score
+                best = [line1, line2]
+
+    return best
+
+def fit_title_to_two_lines(title, font_path, max_width, initial_size, min_size=10, min_words_per_line=2):
+    """
+    Fit title into up to 2 lines using a balanced split.
+    - If it fits on one line, keep it single-line.
+    - Else, try all split points at decreasing sizes until both lines fit under max_width.
+    - If nothing fits by min_size, truncate line 2 with an ellipsis.
+    Returns: (title_lines, title_font)
+    """
     size = initial_size
-    while size > 10:
-        trial_font = ImageFont.truetype(font_path, size)
-        width = trial_font.getbbox(title)[2] - trial_font.getbbox(title)[0]
-        if width <= max_width:
-            return trial_font
+    while size >= min_size:
+        fnt = ImageFont.truetype(font_path, size)
+
+        # if full title fits on one line, use it
+        if text_width(fnt, title) <= max_width:
+            return [title], fnt
+
+        # otherwise try balanced two-line split
+        split = best_two_line_wrap(title, fnt, max_width, min_words_per_line=min_words_per_line)
+        if split:
+            return split, fnt
+
         size -= 1
-    return ImageFont.truetype(font_path, 10)
+
+    # Force-fit with truncation at min_size
+    fnt = ImageFont.truetype(font_path, min_size)
+    words = title.split()
+
+    # Greedily fill line 1
+    line1 = ""
+    i = 0
+    while i < len(words):
+        test = words[i] if not line1 else f"{line1} {words[i]}"
+        if text_width(fnt, test) <= max_width:
+            line1 = test
+            i += 1
+        else:
+            break
+
+    # Remaining to line 2 (with ellipsis if needed)
+    remaining = " ".join(words[i:])
+    line2 = ""
+    for w in remaining.split():
+        test2 = w if not line2 else f"{line2} {w}"
+        if text_width(fnt, test2 + " …") <= max_width:
+            line2 = test2
+        else:
+            line2 = (line2 + " …").strip()
+            break
+
+    if not line2 and remaining:
+        # even a single word doesn't fit with ellipsis — just ellipsize the word
+        line2 = (remaining.split()[0] + " …").strip()
+
+    return ([line1] if not line2 else [line1, line2]), fnt
 
 # === Load overlays and font ===
 gradient = Image.open(GRADIENT_PATH).convert("RGBA")
@@ -78,37 +164,50 @@ for i, game in enumerate(games):
     selected = random.sample(screenshots, 3)
     slug = game['slug']
 
-    raw_title = game.get('title', '').strip()
-    region = game.get('cheapest_region', '').replace('Price', '').replace('NewZealand', 'New Zealand').replace('Southafrica', 'South Africa').strip()
+    # --- Text data (UPPERCASED) ---
+    raw_title = game.get('title', '').strip().upper()
+
+    region = game.get('cheapest_region', '')
+    region = (region.replace('Price', '')
+                    .replace('NewZealand', 'NEW ZEALAND')
+                    .replace('Southafrica', 'SOUTH AFRICA')
+                    .strip()
+                    .upper())
+
     price = int(game.get('lowest_php_price', 0))
     formatted_price = f"{price:,}"
+
     sale_ends_raw = game.get('sale_ends', '')
-
     try:
-        sale_ends = datetime.strptime(sale_ends_raw, '%Y-%m-%d').strftime('%b %d')
+        sale_ends = datetime.strptime(sale_ends_raw, '%Y-%m-%d').strftime('%b %d').upper()
     except Exception:
-        sale_ends = sale_ends_raw or 'N/A'
+        sale_ends = (sale_ends_raw or 'N/A').upper()
 
-    # === Dynamically adjust font size for title ===
-    title_font = fit_title_font(raw_title, FONT_PATH, MAX_TEXT_WIDTH, FONT_SIZE)
-    title_line = (raw_title, (255, 185, 18))
+    # === Title: balanced fit + wrap to max 2 lines ===
+    title_lines, title_font = fit_title_to_two_lines(
+        raw_title, FONT_PATH, MAX_TEXT_WIDTH, FONT_SIZE, min_size=10, min_words_per_line=2
+    )
+    TITLE_LINES_COUNT = len(title_lines)
 
+    # === Store label (UPPERCASED) ===
     if PLATFORM == "ps" and game.get("cheapest_region") == "SalePrice":
-        store_label = "Turkey PSN"
+        store_label = "TURKEY PSN"
     elif PLATFORM == "switch" and game.get("cheapest_region") == "SalePrice":
-        store_label = "US eShop"
+        store_label = "US ESHOP"
     else:
-        store_label = region + " eShop"
+        store_label = f"{region} ESHOP"
 
+    # === Build segments (UPPERCASE) ===
     segments = [
-        ("is on sale on", (255, 255, 255), True),
+        ("IS ON SALE ON", (255, 255, 255), True),
         (store_label, (149, 239, 255), False),
-        ("for", (255, 255, 255), True),
+        ("FOR", (255, 255, 255), True),
         (f"PHP {formatted_price}.00", (149, 239, 255), False),
-        ("until", (255, 255, 255), True),
+        ("UNTIL", (255, 255, 255), True),
         (sale_ends, (149, 239, 255), False)
     ]
 
+    # === Colorized word wrapping for sale-info ===
     words_colored = []
     for text, color, should_split in segments:
         if should_split:
@@ -135,9 +234,11 @@ for i, game in enumerate(games):
     if current_line:
         wrapped_lines.append(current_line)
 
-    lines = [title_line]
+    # === Assemble final lines: 1–2 title lines, then wrapped sale-info ===
+    lines = [(t, (255, 185, 18)) for t in title_lines]  # gold title lines
     lines.extend(wrapped_lines)
 
+    # === Load images ===
     try:
         top_left = resize_keep_aspect(Image.open(BytesIO(requests.get(selected[0]).content)), 500)
         top_right = resize_keep_aspect(Image.open(BytesIO(requests.get(selected[1]).content)), 500)
@@ -146,6 +247,7 @@ for i, game in enumerate(games):
         print(f"❌ Failed to process {slug}: {e}")
         continue
 
+    # === Compose canvas ===
     canvas = Image.new('RGB', (CANVAS_WIDTH, CANVAS_HEIGHT), color=(0, 0, 0))
     paste_top_aligned(canvas, top_left, 0, 0)
     paste_top_aligned(canvas, top_right, 500, 0)
@@ -157,6 +259,7 @@ for i, game in enumerate(games):
     canvas_rgba.alpha_composite(bottom_text, dest=(0, 0))
     button_path = None
 
+    # === Platform button overlays ===
     if PLATFORM == "ps":
         is_ps4 = game.get("IsPS4", 0)
         is_ps5 = game.get("IsPS5", 0)
@@ -180,6 +283,7 @@ for i, game in enumerate(games):
     else:
         print(f"⚠️ No button overlay found for game: {game.get('title')} ({button_path})")
 
+    # === Draw text (same layout behavior as your current script) ===
     draw = ImageDraw.Draw(canvas_rgba)
     line_spacing = 10
     line_height = font.getbbox("Ay")[3] - font.getbbox("Ay")[1]
@@ -187,22 +291,26 @@ for i, game in enumerate(games):
 
     for line_index, line in enumerate(lines):
         if isinstance(line, tuple):
+            # Title lines (use title_font for however many title lines we have)
             text, color = line
-            dynamic_font = title_font if line_index == 0 else font
-            text_width = dynamic_font.getbbox(text)[2] - dynamic_font.getbbox(text)[0]
-            x = (CANVAS_WIDTH - text_width) // 2
+            dynamic_font = title_font if line_index < TITLE_LINES_COUNT else font
+            text_width_px = dynamic_font.getbbox(text)[2] - dynamic_font.getbbox(text)[0]
+            x = (CANVAS_WIDTH - text_width_px) // 2
             draw.text((x, y), text, font=dynamic_font, fill=color)
         else:
+            # Wrapped sale-info line (list of (word, color))
             total_width = sum(font.getbbox(word)[2] - font.getbbox(word)[0] + space_width for word, _ in line) - space_width
             x = (CANVAS_WIDTH - total_width) // 2
             for word, color in line:
                 draw.text((x, y), word, font=font, fill=color)
                 x += font.getbbox(word)[2] - font.getbbox(word)[0] + space_width
+
         y += line_height + line_spacing
 
+    # === Save ===
     final_image = canvas_rgba.convert("RGB")
     index = str(i + 1).zfill(3)
     output_path = os.path.join(OUTPUT_FOLDER, f"{index}_{slug}.jpg")
     final_image.save(output_path, 'JPEG')
 
-print(f"✅ All images saved in '{OUTPUT_FOLDER}' with colored text and overlays.")
+print(f"✅ All images saved in '{OUTPUT_FOLDER}' with balanced, UPPERCASE titles and colorized sale text.")
