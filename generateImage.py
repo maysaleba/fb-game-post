@@ -23,18 +23,21 @@ with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
     config = json.load(f)
 
 # === Config values ===
-INPUT_FILE = config["input_file"]
-OUTPUT_FOLDER = config["output_folder"]
-GRADIENT_PATH = config["gradient_path"]
-BUTTON_MAP = config.get("button_map", {})
-PS_BUTTON_MAP = config.get("ps_button_map", {})
+INPUT_FILE       = config["input_file"]
+OUTPUT_FOLDER    = config["output_folder"]
+GRADIENT_PATH    = config["gradient_path"]
+BUTTON_MAP       = config.get("button_map", {})
+PS_BUTTON_MAP    = config.get("ps_button_map", {})
 BOTTOM_TEXT_PATH = config["bottom_text_path"]
-FONT_PATH = config["font_path"]
-CANVAS_WIDTH = config["canvas_width"]
-CANVAS_HEIGHT = config["canvas_height"]
-FONT_SIZE = config["font_size"]
-TEXT_Y = config["text_y"]
-MAX_TEXT_WIDTH = config["max_text_width"]
+FONT_PATH        = config["font_path"]
+CANVAS_WIDTH     = config["canvas_width"]
+CANVAS_HEIGHT    = config["canvas_height"]
+FONT_SIZE        = config["font_size"]
+TEXT_Y           = config["text_y"]
+MAX_TEXT_WIDTH   = config["max_text_width"]
+
+# 👇 NEW: char spacing knob (non-CLI; set in JSON or leave default)
+CHAR_SPACING     = config.get("char_spacing", 0)  # negative = tighter, positive = looser
 
 # === Prepare output ===
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
@@ -54,13 +57,25 @@ def resize_keep_aspect(image, target_width):
 def paste_top_aligned(canvas, img, x, y):
     canvas.paste(img, (x, y))
 
-def text_width(px_font, s: str) -> int:
+def text_width(px_font, s: str, spacing: int = 0) -> int:
+    """Width of string s considering per-character spacing."""
     if not s:
         return 0
-    bbox = px_font.getbbox(s)
-    return bbox[2] - bbox[0]
+    total = 0
+    for ch in s:
+        bbox = px_font.getbbox(ch)
+        total += (bbox[2] - bbox[0]) + spacing
+    return total - spacing if s else 0  # remove last extra spacing
 
-def best_two_line_wrap(title: str, fnt, max_width: int, min_words_per_line: int = 2):
+def draw_text_with_spacing(draw, position, text, font, fill, spacing=0):
+    """Draw text with adjustable character spacing (kerning-like)."""
+    x, y = position
+    for ch in text:
+        draw.text((x, y), ch, font=font, fill=fill)
+        bbox = font.getbbox(ch)
+        x += (bbox[2] - bbox[0]) + spacing
+
+def best_two_line_wrap(title: str, fnt, max_width: int, spacing: int = 0, min_words_per_line: int = 2):
     """
     Try all word break positions and choose the split that:
       1) keeps BOTH lines <= max_width,
@@ -82,8 +97,8 @@ def best_two_line_wrap(title: str, fnt, max_width: int, min_words_per_line: int 
         # discourage orphaned 1-word lines
         orphan_penalty = 3000 if (len(words[:k]) < min_words_per_line or len(words[k:]) < min_words_per_line) else 0
 
-        w1 = text_width(fnt, line1)
-        w2 = text_width(fnt, line2)
+        w1 = text_width(fnt, line1, spacing)
+        w2 = text_width(fnt, line2, spacing)
 
         if w1 <= max_width and w2 <= max_width:
             balance_score = abs(w1 - w2)        # prefer similar widths
@@ -95,9 +110,9 @@ def best_two_line_wrap(title: str, fnt, max_width: int, min_words_per_line: int 
 
     return best
 
-def fit_title_to_two_lines(title, font_path, max_width, initial_size, min_size=10, min_words_per_line=2):
+def fit_title_to_two_lines(title, font_path, max_width, initial_size, min_size=10, spacing=0, min_words_per_line=2):
     """
-    Fit title into up to 2 lines using a balanced split.
+    Fit title into up to 2 lines using a balanced split and spacing-aware width.
     - If it fits on one line, keep it single-line.
     - Else, try all split points at decreasing sizes until both lines fit under max_width.
     - If nothing fits by min_size, truncate line 2 with an ellipsis.
@@ -108,11 +123,11 @@ def fit_title_to_two_lines(title, font_path, max_width, initial_size, min_size=1
         fnt = ImageFont.truetype(font_path, size)
 
         # if full title fits on one line, use it
-        if text_width(fnt, title) <= max_width:
+        if text_width(fnt, title, spacing) <= max_width:
             return [title], fnt
 
         # otherwise try balanced two-line split
-        split = best_two_line_wrap(title, fnt, max_width, min_words_per_line=min_words_per_line)
+        split = best_two_line_wrap(title, fnt, max_width, spacing=spacing, min_words_per_line=min_words_per_line)
         if split:
             return split, fnt
 
@@ -127,7 +142,7 @@ def fit_title_to_two_lines(title, font_path, max_width, initial_size, min_size=1
     i = 0
     while i < len(words):
         test = words[i] if not line1 else f"{line1} {words[i]}"
-        if text_width(fnt, test) <= max_width:
+        if text_width(fnt, test, spacing) <= max_width:
             line1 = test
             i += 1
         else:
@@ -138,10 +153,10 @@ def fit_title_to_two_lines(title, font_path, max_width, initial_size, min_size=1
     line2 = ""
     for w in remaining.split():
         test2 = w if not line2 else f"{line2} {w}"
-        if text_width(fnt, test2 + " …") <= max_width:
+        if text_width(fnt, test2 + " …", spacing) <= max_width:
             line2 = test2
         else:
-            line2 = (line2 + " …").strip()
+            line2 = (line2 + " …").strip() if line2 else (w + " …")
             break
 
     if not line2 and remaining:
@@ -183,9 +198,9 @@ for i, game in enumerate(games):
     except Exception:
         sale_ends = (sale_ends_raw or 'N/A').upper()
 
-    # === Title: balanced fit + wrap to max 2 lines ===
+    # === Title: balanced fit + wrap to max 2 lines (spacing-aware) ===
     title_lines, title_font = fit_title_to_two_lines(
-        raw_title, FONT_PATH, MAX_TEXT_WIDTH, FONT_SIZE, min_size=10, min_words_per_line=2
+        raw_title, FONT_PATH, MAX_TEXT_WIDTH, FONT_SIZE, min_size=10, spacing=CHAR_SPACING, min_words_per_line=2
     )
     TITLE_LINES_COUNT = len(title_lines)
 
@@ -207,14 +222,14 @@ for i, game in enumerate(games):
         (sale_ends, (149, 239, 255), False)
     ]
 
-    # === Colorized word wrapping for sale-info ===
+    # === Colorized word wrapping for sale-info (spacing-aware) ===
     words_colored = []
-    for text, color, should_split in segments:
+    for text_seg, color, should_split in segments:
         if should_split:
-            for word in text.split(" "):
+            for word in text_seg.split(" "):
                 words_colored.append((word, color))
         else:
-            words_colored.append((text, color))
+            words_colored.append((text_seg, color))
 
     space_width = font.getbbox(" ")[2] - font.getbbox(" ")[0]
     wrapped_lines = []
@@ -222,14 +237,22 @@ for i, game in enumerate(games):
     current_width = 0
 
     for word, color in words_colored:
-        word_width = font.getbbox(word)[2] - font.getbbox(word)[0]
-        if current_width + word_width > MAX_TEXT_WIDTH and current_line:
+        w_width = text_width(font, word, CHAR_SPACING)
+        if current_line:
+            projected = current_width + space_width + w_width
+        else:
+            projected = current_width + w_width
+
+        if projected > MAX_TEXT_WIDTH and current_line:
             wrapped_lines.append(current_line)
             current_line = [(word, color)]
-            current_width = word_width + space_width
+            current_width = w_width
         else:
+            if current_line:
+                current_width += space_width + w_width
+            else:
+                current_width = w_width
             current_line.append((word, color))
-            current_width += word_width + space_width
 
     if current_line:
         wrapped_lines.append(current_line)
@@ -240,9 +263,9 @@ for i, game in enumerate(games):
 
     # === Load images ===
     try:
-        top_left = resize_keep_aspect(Image.open(BytesIO(requests.get(selected[0]).content)), 500)
+        top_left  = resize_keep_aspect(Image.open(BytesIO(requests.get(selected[0]).content)), 500)
         top_right = resize_keep_aspect(Image.open(BytesIO(requests.get(selected[1]).content)), 500)
-        bottom = resize_keep_aspect(Image.open(BytesIO(requests.get(selected[2]).content)), 1000)
+        bottom    = resize_keep_aspect(Image.open(BytesIO(requests.get(selected[2]).content)), 1000)
     except Exception as e:
         print(f"❌ Failed to process {slug}: {e}")
         continue
@@ -283,7 +306,7 @@ for i, game in enumerate(games):
     else:
         print(f"⚠️ No button overlay found for game: {game.get('title')} ({button_path})")
 
-    # === Draw text (same layout behavior as your current script) ===
+    # === Draw text (spacing-aware) ===
     draw = ImageDraw.Draw(canvas_rgba)
     line_spacing = 5
     line_height = font.getbbox("Ay")[3] - font.getbbox("Ay")[1]
@@ -294,16 +317,24 @@ for i, game in enumerate(games):
             # Title lines (use title_font for however many title lines we have)
             text, color = line
             dynamic_font = title_font if line_index < TITLE_LINES_COUNT else font
-            text_width_px = dynamic_font.getbbox(text)[2] - dynamic_font.getbbox(text)[0]
+            text_width_px = text_width(dynamic_font, text, CHAR_SPACING)
             x = (CANVAS_WIDTH - text_width_px) // 2
-            draw.text((x, y), text, font=dynamic_font, fill=color)
+            draw_text_with_spacing(draw, (x, y), text, dynamic_font, color, CHAR_SPACING)
         else:
             # Wrapped sale-info line (list of (word, color))
-            total_width = sum(font.getbbox(word)[2] - font.getbbox(word)[0] + space_width for word, _ in line) - space_width
+            total_width = 0
+            for idx, (word, _) in enumerate(line):
+                w = text_width(font, word, CHAR_SPACING)
+                total_width += w
+                if idx < len(line) - 1:
+                    total_width += space_width
             x = (CANVAS_WIDTH - total_width) // 2
-            for word, color in line:
-                draw.text((x, y), word, font=font, fill=color)
-                x += font.getbbox(word)[2] - font.getbbox(word)[0] + space_width
+
+            for idx, (word, color) in enumerate(line):
+                draw_text_with_spacing(draw, (x, y), word, font, color, CHAR_SPACING)
+                x += text_width(font, word, CHAR_SPACING)
+                if idx < len(line) - 1:
+                    x += space_width
 
         y += line_height + line_spacing
 
@@ -313,5 +344,4 @@ for i, game in enumerate(games):
     output_path = os.path.join(OUTPUT_FOLDER, f"{index}_{slug}.jpg")
     final_image.save(output_path, 'JPEG')
 
-print(f"✅ All images saved in '{OUTPUT_FOLDER}' with balanced, UPPERCASE titles and colorized sale text.")
-
+print(f"✅ All images saved in '{OUTPUT_FOLDER}' with balanced, UPPERCASE titles, colorized sale text, and char spacing = {CHAR_SPACING}.")
