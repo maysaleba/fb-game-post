@@ -40,7 +40,7 @@ TEXT_CENTER_Y      = 774  # y-axis center for the ENTIRE block of three lines
 LINE_SPACING_PX    = 16   # spacing between lines (visual gap)
 
 # NEW: global character spacing (tracking) in pixels; can be negative
-CHAR_SPACING_PX    = -3
+CHAR_SPACING_PX    = -2
 
 # Per-line max widths + minimum font size (for per-line auto-fit)
 LINE1_MAX_WIDTH_PX = 1100
@@ -817,3 +817,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
