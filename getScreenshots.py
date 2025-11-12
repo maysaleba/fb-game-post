@@ -58,7 +58,8 @@ slug_overrides = {
     "potion-permit": "potion-permit--1",
     "devil-may-cry-3-special-edition": "devil-may-cry-3-dantes-awakening-special-edition",
     "resident-evil": "resident-evil--3",
-    "the-legend-of-zelda-links-awakening": "the-legend-of-zelda-links-awakening--1"
+    "the-legend-of-zelda-links-awakening": "the-legend-of-zelda-links-awakening--1",
+    "wwe-2k25-standard-edition": "wwe-2k25"
 }
 
 def chunked(iterable: List, n: int) -> Iterable[List]:
