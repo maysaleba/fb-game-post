@@ -59,7 +59,11 @@ slug_overrides = {
     "devil-may-cry-3-special-edition": "devil-may-cry-3-dantes-awakening-special-edition",
     "resident-evil": "resident-evil--3",
     "the-legend-of-zelda-links-awakening": "the-legend-of-zelda-links-awakening--1",
-    "wwe-2k25-standard-edition": "wwe-2k25"
+    "wwe-2k25-standard-edition": "wwe-2k25",
+    "groundskeeper2": "groundskeeper-2",
+    "dont-starve-nintendo-edition": "don-t-starve",
+    "reaper-tale-of-a-pale-swordsman": "reaper-tale-of-a-pale-swordsman--1",
+    "valkyria-chronicles-plus-valkyria-chronicles-4-bundle": "valkyria-chronicles-bundle"
 }
 
 def chunked(iterable: List, n: int) -> Iterable[List]:
