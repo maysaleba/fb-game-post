@@ -139,7 +139,7 @@ if period_start is None:
 
 # Expire if the fixed window elapsed
 if (now_utc() - period_start) >= timedelta(days=EXPIRY_DAYS):
-    print("🕒 7‑day period expired. Clearing tracker...")
+    print("🕒 7-day period expired. Clearing tracker...")
     exported_slugs = set()
     period_start = now_utc()  # start a new 7-day window
 
@@ -192,13 +192,41 @@ for game in games[:CANDIDATE_POOL_LIMIT]:
     if len(new_candidates) >= MAX_GAMES:
         break
 
-# ========= EXCHANGE RATES =========
-exchange_url = "https://cdn.jsdelivr.net/gh/ismartcoding/currency-api@main/latest/data.json"
-exchange_data = requests.get(exchange_url).json()
-datam = exchange_data["quotes"]
-php_base = float(datam['PHP'])
+# ========= EXCHANGE RATES (NEW API) =========
+# New API: https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json
+exchange_url = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json"
+currency_data = requests.get(exchange_url, timeout=60).json()
+
+# currency_data["usd"] looks like: { "php": 57.1, "ars": 1000.0, ... }
+usd_rates = currency_data.get("usd", {}) or {}
+
+# Convert keys to UPPERCASE and values to float, mimicking old datam structure
+datam = {}
+for code, value in usd_rates.items():
+    try:
+        datam[code.upper()] = float(value)
+    except (TypeError, ValueError):
+        continue
+
+# Ensure USD is present as base
+if "USD" not in datam:
+    datam["USD"] = 1.0
+
+# PHP per 1 USD
+php_base = datam.get('PHP')
+if php_base is None:
+    raise RuntimeError("PHP rate not found in currency API response")
+
 # e.g., "usd" -> value to multiply with amount in USD to get PHP
-conversion_rates = {k.lower() + "Exchange": php_base / float(v) for k, v in datam.items()}
+# For a given currency CUR:
+#   datam['PHP'] = PHP per 1 USD
+#   datam[CUR]   = CUR per 1 USD
+#   conversion_rates['curExchange'] = PHP per 1 CUR = php_base / datam[CUR]
+conversion_rates = {
+    k.lower() + "Exchange": php_base / float(v)
+    for k, v in datam.items()
+    if v
+}
 
 # ========= BUILD EXPORT =========
 export_data = []
