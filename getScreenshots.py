@@ -63,7 +63,8 @@ slug_overrides = {
     "groundskeeper2": "groundskeeper-2",
     "dont-starve-nintendo-edition": "don-t-starve",
     "reaper-tale-of-a-pale-swordsman": "reaper-tale-of-a-pale-swordsman--1",
-    "valkyria-chronicles-plus-valkyria-chronicles-4-bundle": "valkyria-chronicles-bundle"
+    "valkyria-chronicles-plus-valkyria-chronicles-4-bundle": "valkyria-chronicles-bundle",
+    "dispatch": "dispatch--3"
 }
 
 def chunked(iterable: List, n: int) -> Iterable[List]:
