@@ -109,7 +109,41 @@ def slug_variants(slug: str) -> list:
               "blasphemous-2": "blasphemous-ii",
               "dark-deity-2": "dark-deity-ii",
               "dragon-ball-xenoverse-2-for-nintendo-switch-switch": "dragon-ball-xenoverse-2",
-             }
+              "regalia-of-men-and-monarchs-royal-edition": "regalia-royal-edition", 
+              "terra-nil": "terra-nil--1", 
+              "disney-epic-mickey-rebrushed": "epic-mickey-rebrushed",
+              "bladechimera": "blade-chimera",
+              "climb": "climb--5",
+              "unicorn-overlord": "unicorn-overlord--1",
+              "rune-factory-guardians-of-azuma": "rune-factory-guardians-of-azuma--1",
+              "atelier-arland-series-deluxe-pack": "atelier-alchemists-of-arland-1-2-3-dx",
+              "sunseed-island-new-journey-collection": "sunseed-island",
+              "fate-extella-link": "fate-slash-extella-link",
+              "grand-theft-auto-the-trilogy-the-definitive-edition": "grand-theft-auto-the-trilogy-the-definitive-edition--1",
+              "final-fantasy-x-x-2-hd-remaster": "final-fantasy-x-slash-x-2-hd-remaster",
+              "fate-extella-the-umbral-star": "fate-slash-extella-the-umbral-star",
+              "ni-no-kuni-ii-revenant-kingdom-princes-edition": "ni-no-kuni-ii-revenant-kingdom-the-princes-edition",
+              "hades": "hades--1",
+              "street-fighter-6": "street-fighter-6--1",
+              "mega-man-zero-zx-legacy-collection": "mega-man-zero-slash-zx-legacy-collection",
+              "live-a-live": "live-a-live--1",
+              "ashen": "ashen--1",
+              "no-mans-sky": "no-man-s-sky",
+              "monster-hunter-rise-plus-sunbreak-deluxe": "monster-hunter-rise-plus-sunbreak-deluxe-edition",
+              "the-witcher-3-wild-hunt-complete-edition": "the-witcher-3-wild-hunt-complete-edition--1",
+              "outlast-2": "outlast-ii",
+              "sniper-elite-3-ultimate-edition": "sniper-elite-iii-ultimate-edition",
+              "potion-permit": "potion-permit--1",
+              "devil-may-cry-3-special-edition": "devil-may-cry-3-dantes-awakening-special-edition",
+              "resident-evil": "resident-evil--3",
+              "the-legend-of-zelda-links-awakening": "the-legend-of-zelda-links-awakening--1",
+              "wwe-2k25-standard-edition": "wwe-2k25",
+              "groundskeeper2": "groundskeeper-2",
+              "dont-starve-nintendo-edition": "don-t-starve",
+             "reaper-tale-of-a-pale-swordsman": "reaper-tale-of-a-pale-swordsman--1",
+             "valkyria-chronicles-plus-valkyria-chronicles-4-bundle": "valkyria-chronicles-bundle",
+             "dispatch": "dispatch--3"
+            }
 
     # 🔑 Check all generated variants against manual overrides
     for v in list(variants):
@@ -817,4 +851,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
