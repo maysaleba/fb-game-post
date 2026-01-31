@@ -20,6 +20,9 @@
     "HongKongPrice": "hkdExchange",
     "KoreaPrice": "krwExchange",
     "JapanPrice": "jpyExchange",
+    "SingaporePrice": "sgdExchange",
+    "MalaysiaPrice": "myrExchange",
+    "ThailandPrice": "thbExchange",
     "SalePrice": "usdExchange"
   },
   "argentina_logic": true,
